@@ -1,0 +1,32 @@
+{
+  "name": "frugalrouter",
+  "version": "0.0.0",
+  "description": "One-command installer and updater for a local 9Router with a ranked fallback chain of free, local and optional low-cost models.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "frugal": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

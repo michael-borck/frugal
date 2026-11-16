@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test and coverage
+coverage/
+
+# Local data and secrets
+*.log
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+frugal-state.json
+frugal-backups/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+._*
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
