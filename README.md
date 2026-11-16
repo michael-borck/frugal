@@ -1,8 +1,10 @@
 # frugal
 
-One command to a working, auto-failover coding setup: installs and configures a local [9Router](https://example.invalid/9router), builds a ranked fallback chain of free, local and optional low-cost models, and wires it into OpenCode, Pi, and Msty.
+One command to a working, auto-failover coding setup. frugal is a **configurator**: it installs and configures a local 9Router, pre-builds ranked fallback combos (`free-best`, and `budget-best` on the budget tier) from the best free, local and optional low-cost models, and wires them into whichever harness the student uses — OpenCode, Pi, or Msty.
 
-> Status: scaffold. The command surface, configuration model, and ranking/merge core are in place with unit tests. The spike items (real 9Router combo API, tool config writers, local model detection, interactive setup) are next. See `docs/SPEC.md` for the full specification and `docs/AUDIT.md` for the review behind this scaffold.
+frugal never sits in the request path. Once configured, the student's tools talk only to 9Router; 9Router owns failover, cooldowns, and quota handling. frugal's job is to make that setup one command and keep the combos current.
+
+> Status: scaffold. The command surface, configurator core (combo building, 9Router registration), harness writers (OpenCode, Pi, Msty) with backup/restore, and unit tests are in place. The spike items (real 9Router combo API, candidate discovery, local model detection, interactive setup) are next. See `docs/SPEC.md` for the full specification and `docs/AUDIT.md` for the review and the architecture decision behind this scaffold.
 
 ## Requirements
 

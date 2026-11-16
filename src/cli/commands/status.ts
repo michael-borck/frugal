@@ -1,5 +1,6 @@
 import { defaultPaths, loadState, loadUserConfig } from "../../core/config.js";
-import { COMBO_STALE_HOURS } from "../../core/types.js";
+import { COMBO_STALE_HOURS, combosForTier } from "../../core/types.js";
+import { HttpRouterClient } from "../../core/routerClient.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
 function hoursSince(iso: string | null): number | null {
@@ -11,44 +12,42 @@ function hoursSince(iso: string | null): number | null {
 
 export const statusCommand: Command = {
   name: "status",
-  summary: "Show mode, combo order, active model, cooldowns, quota and a next step.",
+  summary: "Show tier, configured combos and a next step (frugal configures; 9Router routes).",
   group: "Everyday",
-  async run(_ctx: CommandContext, _args: string[]) {
+  async run(ctx: CommandContext, _args: string[]) {
     const paths = defaultPaths();
     const [user, state] = await Promise.all([loadUserConfig(paths), loadState(paths)]);
     const comboAge = hoursSince(state.lastRefreshAt);
     const stale = comboAge == null || comboAge > COMBO_STALE_HOURS;
-    const cooldowns = Object.entries(state.cooldowns).filter(
-      ([, until]) => Date.parse(until) > Date.now(),
-    );
+    const router = new HttpRouterClient();
+    const routerUp = await router.health();
 
     const report = {
       tier: user.tier,
       local_mode: user.localMode,
-      combo: state.lastGoodCombo?.name ?? null,
-      combo_entries: state.lastGoodCombo?.entries.length ?? 0,
+      combos: combosForTier(user.tier),
+      last_built: state.lastGoodCombo?.name ?? null,
+      last_built_entries: state.lastGoodCombo?.entries.length ?? 0,
+      last_built_at: state.lastRefreshAt,
       combo_age_hours: comboAge == null ? null : Math.round(comboAge * 10) / 10,
       combo_stale: stale,
-      cooldowns: cooldowns.map(([id, until]) => ({ id, until })),
+      router: routerUp ? "reachable" : "unreachable",
       enabled_providers: user.enabledProviders,
-      next_step: stale
-        ? "frugal refresh"
-        : "frugal doctor",
+      next_step: !routerUp ? "frugal start" : stale ? "frugal refresh" : "frugal doctor",
     };
 
-    jsonOut(_ctx, report);
-    if (!_ctx.json) {
-      out(_ctx, `Tier: ${report.tier} · Local mode: ${report.local_mode}`);
+    jsonOut(ctx, report);
+    if (!ctx.json) {
+      out(ctx, `Tier: ${report.tier} · Local mode: ${report.local_mode}`);
+      out(ctx, `Combos: ${report.combos.join(", ")}`);
       out(
-        _ctx,
-        `Combo: ${report.combo ?? "(none)"} · ${report.combo_entries} models · ${
-          comboAge == null ? "never refreshed" : `${report.combo_age_hours}h ago`
+        ctx,
+        `Last built: ${report.last_built ?? "(none)"} · ${report.last_built_entries} models · ${
+          comboAge == null ? "never" : `${report.combo_age_hours}h ago`
         }`,
       );
-      if (report.cooldowns.length > 0) {
-        out(_ctx, `Cooling down: ${report.cooldowns.map((c) => c.id).join(", ")}`);
-      }
-      out(_ctx, report.next_step);
+      out(ctx, `9Router: ${report.router}`);
+      out(ctx, report.next_step);
     }
     return 0;
   },

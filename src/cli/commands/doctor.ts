@@ -1,6 +1,8 @@
 import { defaultPaths, loadState, loadUserConfig } from "../../core/config.js";
-import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
+import { ROUTER_HOST, ROUTER_PORT, combosForTier } from "../../core/types.js";
 import { HttpRouterClient } from "../../core/routerClient.js";
+import { openCodeConfigured } from "../../core/integrations/opencode.js";
+import { piConfigured } from "../../core/integrations/pi.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
 export const doctorCommand: Command = {
@@ -18,7 +20,6 @@ export const doctorCommand: Command = {
       ok: boolean;
       detail: string;
       fix?: string;
-      autoFixable?: boolean;
     };
     const checks: Check[] = [];
 
@@ -50,17 +51,31 @@ export const doctorCommand: Command = {
       name: "combo",
       ok: state.lastGoodCombo != null,
       detail: state.lastGoodCombo
-        ? `combo ${state.lastGoodCombo.name} with ${state.lastGoodCombo.entries.length} models`
-        : "no last-good combo",
+        ? `built ${state.lastGoodCombo.name} with ${state.lastGoodCombo.entries.length} models`
+        : "no combo built yet",
       fix: "Run frugal refresh",
     });
 
-    const resultsStale = null;
     checks.push({
-      name: "ranking_freshness",
-      ok: resultsStale == null,
-      detail: resultsStale == null ? "results.json age unknown" : `${resultsStale} days old`,
-      fix: "frugal refresh",
+      name: "combos_for_tier",
+      ok: true,
+      detail: `tier "${user.tier}" exposes: ${combosForTier(user.tier).join(", ")}`,
+    });
+
+    const opencodeOk = await openCodeConfigured();
+    checks.push({
+      name: "opencode",
+      ok: opencodeOk,
+      detail: opencodeOk ? "frugal provider configured" : "frugal provider not configured",
+      fix: "Run frugal setup",
+    });
+
+    const piOk = await piConfigured();
+    checks.push({
+      name: "pi",
+      ok: piOk,
+      detail: piOk ? "9Router extension configured" : "9Router extension not configured",
+      fix: "Run frugal setup",
     });
 
     const failed = checks.filter((c) => !c.ok);

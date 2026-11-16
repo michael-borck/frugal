@@ -116,10 +116,17 @@ export interface ComboSnapshot {
   entries: ComboEntry[];
 }
 
+/**
+ * frugal-owned runtime state.
+ *
+ * frugal is a configurator, not a proxy: 9Router owns the request path
+ * (failover, context guard, cooldowns, quota reads). This file records only
+ * what frugal itself produced (the combos it wrote and when), never live
+ * per-model runtime signals it does not own.
+ */
 export interface RuntimeState {
   schemaVersion: string;
   lastGoodCombo: ComboSnapshot | null;
-  cooldowns: Record<string, string>;
   lastRefreshAt: string | null;
   lastFreeModelList: string[];
 }
@@ -154,3 +161,16 @@ export const ROUTER_HOST = "127.0.0.1";
 export const ROUTER_PORT = 20128;
 export const RESULTS_STALE_DAYS = 45;
 export const COMBO_STALE_HOURS = 24;
+
+/** The two combos frugal writes to 9Router. Students pick one by model name. */
+export const FREE_COMBO_NAME = "free-best";
+export const BUDGET_COMBO_NAME = "budget-best";
+
+export function comboNameForTier(tier: Tier): string {
+  return tier === "budget" ? BUDGET_COMBO_NAME : FREE_COMBO_NAME;
+}
+
+/** How many combos a given tier should expose. */
+export function combosForTier(tier: Tier): string[] {
+  return tier === "budget" ? [BUDGET_COMBO_NAME, FREE_COMBO_NAME] : [FREE_COMBO_NAME];
+}

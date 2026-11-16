@@ -49,7 +49,6 @@ export function defaultState(): RuntimeState {
   return {
     schemaVersion: SCHEMA_VERSION,
     lastGoodCombo: null,
-    cooldowns: {},
     lastRefreshAt: null,
     lastFreeModelList: [],
   };
@@ -120,7 +119,6 @@ export async function saveState(paths: Paths, state: RuntimeState): Promise<void
   const payload: Record<string, unknown> = {
     schema_version: state.schemaVersion,
     last_good_combo: state.lastGoodCombo,
-    cooldowns: state.cooldowns,
     last_refresh_at: state.lastRefreshAt,
     last_free_model_list: state.lastFreeModelList,
   };
