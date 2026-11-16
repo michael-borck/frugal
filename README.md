@@ -8,7 +8,7 @@ frugal never sits in the request path. Once configured, the student's tools talk
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - A local 9Router instance
 - Free accounts with the providers you enable (at minimum OpenRouter and Groq)
 

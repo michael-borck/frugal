@@ -83,39 +83,36 @@ describe("buildCombos", () => {
 
 describe("openCode integration", () => {
   let tmp: string;
-  const originalHome = process.env.HOME;
+  let configPath: string;
 
   beforeEach(async () => {
     tmp = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-opencode-"));
-    process.env.HOME = tmp;
+    configPath = path.join(tmp, "opencode.json");
   });
 
   afterEach(async () => {
-    process.env.HOME = originalHome;
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
   it("writes an additive provider entry and sets the default model", async () => {
-    const result = await writeOpenCodeConfig({ model: "free-best" });
+    const result = await writeOpenCodeConfig({ model: "free-best", configPath });
     expect(result.changed).toBe(true);
-    const config = await readOpenCodeConfig();
+    const config = await readOpenCodeConfig(configPath);
     expect(config?.provider?.frugal).toBeTruthy();
     expect(config?.model).toBe("frugal/free-best");
   });
 
   it("backs up the original once and preserves existing providers", async () => {
-    const configPath = path.join(tmp, ".config", "opencode", "opencode.json");
-    await fs.mkdir(path.dirname(configPath), { recursive: true });
     await fs.writeFile(
       configPath,
       JSON.stringify({ provider: { anthropic: { npm: "@ai-sdk/anthropic" } } }),
     );
-    await writeOpenCodeConfig();
-    const config = await readOpenCodeConfig();
+    await writeOpenCodeConfig({ configPath });
+    const config = await readOpenCodeConfig(configPath);
     expect(config?.provider?.anthropic).toBeTruthy();
     expect(config?.provider?.frugal).toBeTruthy();
     // second run should not overwrite the first backup
-    await writeOpenCodeConfig();
+    await writeOpenCodeConfig({ configPath });
     const backup = await fs.readFile(`${configPath}.frugal-backup`, "utf8");
     expect(backup).toContain("anthropic");
     expect(backup).not.toContain("frugal");
@@ -125,17 +122,14 @@ describe("openCode integration", () => {
 describe("pi integration", () => {
   it("writes the 9Router extension settings", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-pi-"));
-    const originalHome = process.env.HOME;
-    process.env.HOME = tmp;
+    const configPath = path.join(tmp, "9router-config.json");
     try {
-      const result = await writePiConfig({ model: "free-best" });
+      const result = await writePiConfig({ model: "free-best", configPath });
       expect(result.changed).toBe(true);
-      const file = path.join(tmp, ".pi", "agent", "9router-config.json");
-      const written = JSON.parse(await fs.readFile(file, "utf8"));
+      const written = JSON.parse(await fs.readFile(configPath, "utf8"));
       expect(written.url).toContain("/v1");
       expect(written.models).toContain("free-best");
     } finally {
-      process.env.HOME = originalHome;
       await fs.rm(tmp, { recursive: true, force: true });
     }
   });

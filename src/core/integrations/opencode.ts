@@ -35,10 +35,12 @@ export interface OpenCodeOptions {
   baseUrl?: string;
   apiKey?: string;
   model?: string;
+  /** Override the resolved config path (used by tests). */
+  configPath?: string;
 }
 
 export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promise<IntegrationResult> {
-  const configPath = openCodeConfigPath();
+  const configPath = options.configPath ?? openCodeConfigPath();
   const baseUrl = options.baseUrl ?? `http://${ROUTER_HOST}:${ROUTER_PORT}/v1`;
   const apiKey = options.apiKey ?? "frugal-local";
   const model = options.model ?? "free-best";
@@ -86,20 +88,22 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
   };
 }
 
-export async function openCodeConfigured(): Promise<boolean> {
+export async function openCodeConfigured(configPath = openCodeConfigPath()): Promise<boolean> {
   try {
-    const config = await readJson<OpenCodeConfig>(openCodeConfigPath());
+    const config = await readJson<OpenCodeConfig>(configPath);
     return config != null && config.provider != null && "frugal" in config.provider;
   } catch {
     return false;
   }
 }
 
-export async function readOpenCodeConfig(): Promise<OpenCodeConfig | null> {
+export async function readOpenCodeConfig(
+  configPath = openCodeConfigPath(),
+): Promise<OpenCodeConfig | null> {
   try {
-    await fs.access(openCodeConfigPath());
+    await fs.access(configPath);
   } catch {
     return null;
   }
-  return readJson<OpenCodeConfig>(openCodeConfigPath());
+  return readJson<OpenCodeConfig>(configPath);
 }

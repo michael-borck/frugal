@@ -25,9 +25,9 @@ export const doctorCommand: Command = {
 
     checks.push({
       name: "node",
-      ok: Number(process.versions.node.split(".")[0]) >= 20,
+      ok: Number(process.versions.node.split(".")[0]) >= 22,
       detail: `Node ${process.versions.node}`,
-      fix: "Install Node 20 or newer from https://nodejs.org",
+      fix: "Install Node 22 or newer from https://nodejs.org",
     });
 
     const routerUp = await router.health();

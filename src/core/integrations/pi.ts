@@ -28,10 +28,12 @@ export interface PiOptions {
   baseUrl?: string;
   apiKey?: string;
   model?: string;
+  /** Override the resolved config path (used by tests). */
+  configPath?: string;
 }
 
 export async function writePiConfig(options: PiOptions = {}): Promise<IntegrationResult> {
-  const configPath = piConfigPath();
+  const configPath = options.configPath ?? piConfigPath();
   const baseUrl = options.baseUrl ?? `http://${ROUTER_HOST}:${ROUTER_PORT}/v1`;
   const apiKey = options.apiKey ?? "frugal-local";
   const model = options.model ?? "free-best";
@@ -59,7 +61,7 @@ export async function writePiConfig(options: PiOptions = {}): Promise<Integratio
   };
 }
 
-export async function piConfigured(): Promise<boolean> {
-  const config = await readJson<PiConfig>(piConfigPath());
+export async function piConfigured(configPath = piConfigPath()): Promise<boolean> {
+  const config = await readJson<PiConfig>(configPath);
   return config != null && config.url != null;
 }

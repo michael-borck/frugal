@@ -24,8 +24,8 @@ export const setupCommand: Command = {
     out(ctx, "frugal setup");
     out(ctx, "");
 
-    if (Number(process.versions.node.split(".")[0]) < 20) {
-      out(ctx, "Node 20 or newer is required. Install it from https://nodejs.org, then re-run frugal setup.");
+    if (Number(process.versions.node.split(".")[0]) < 22) {
+      out(ctx, "Node 22 or newer is required. Install it from https://nodejs.org, then re-run frugal setup.");
       return 1;
     }
 
