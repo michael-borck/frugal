@@ -21,6 +21,7 @@ import {
   updateCommand,
   uninstallCommand,
 } from "./commands/settings.js";
+import { addCommand, removeCommand } from "./commands/providerCommands.js";
 
 function version(): string {
   try {
@@ -49,6 +50,8 @@ const COMMANDS: Command[] = [
   tierCommand,
   localCommand,
   providersCommand,
+  addCommand,
+  removeCommand,
   reportCommand,
   updateCommand,
   uninstallCommand,

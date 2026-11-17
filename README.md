@@ -36,6 +36,7 @@ frugal setup
 | `frugal tier free\|budget` | Switch tier |
 | `frugal local mode fallback\|first\|only` | Set local model behaviour |
 | `frugal providers` | List enabled providers and key status |
+| `frugal add <provider>` / `frugal remove <provider>` | Guided key entry and validation, or disconnect and delete the key |
 | `frugal report` / `update` / `uninstall` | Upkeep |
 
 Every command accepts `--json` where it prints data, so pilot results can be collected by script.

@@ -2,6 +2,7 @@ import { defaultPaths, loadUserConfig, saveUserConfig } from "../../core/config.
 import { DEFAULT_MAX_MONTHLY_USD, type LocalMode, type Tier } from "../../core/types.js";
 import { detectLocalServers, probeLocalServers } from "../../core/local.js";
 import { listProviderKeys } from "../../core/secrets.js";
+import { providerInfo } from "../../core/providers.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
 export const tierCommand: Command = {
@@ -93,12 +94,14 @@ export const providersCommand: Command = {
     const paths = defaultPaths();
     const user = await loadUserConfig(paths);
     const keys = await listProviderKeys(paths);
-    const keyless = new Set(["opencode-free", "local", "github-copilot-student"]);
-    const providers = user.enabledProviders.map((provider) => ({
-      provider,
-      needsKey: !keyless.has(provider),
-      hasKey: keys.includes(provider),
-    }));
+    const providers = user.enabledProviders.map((provider) => {
+      const info = providerInfo(provider);
+      return {
+        provider,
+        needsKey: info ? info.auth === "key" : true,
+        hasKey: keys.includes(provider),
+      };
+    });
     jsonOut(ctx, { enabled: user.enabledProviders, providers, keys });
     if (!ctx.json) {
       out(ctx, `Enabled providers: ${user.enabledProviders.join(", ") || "(none)"}`);
