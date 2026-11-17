@@ -1,4 +1,9 @@
 import { SCHEMA_VERSION, type ModelCandidate, type PicksFile, type ResultsFile } from "./types.js";
+import {
+  OPENROUTER_MODELS_URL,
+  parseOpenRouterFreeModels,
+  type OpenRouterModelsResponse,
+} from "./candidates.js";
 
 export interface RankingSource {
   results(): Promise<ResultsFile | null>;
@@ -9,6 +14,7 @@ export interface RankingSource {
 export interface RankingSourceOptions {
   resultsUrl: string;
   picksUrl: string;
+  openRouterModelsUrl?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }
@@ -63,6 +69,14 @@ export class HttpRankingSource implements RankingSource {
   }
 
   async candidates(): Promise<ModelCandidate[]> {
-    throw new Error("candidate discovery is not implemented yet (spike item)");
+    const payload = await fetchJson<OpenRouterModelsResponse>(
+      this.options.openRouterModelsUrl ?? OPENROUTER_MODELS_URL,
+      this.options.fetchImpl ?? fetch,
+      this.options.timeoutMs ?? 10_000,
+    );
+    if (!payload) {
+      throw new Error("could not fetch the OpenRouter model list");
+    }
+    return parseOpenRouterFreeModels(payload);
   }
 }

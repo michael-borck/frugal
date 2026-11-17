@@ -22,11 +22,33 @@ export async function composeAndRegister(
   source: RankingSource,
   router: RouterClient,
 ): Promise<ComposeResult> {
-  const [candidates, results, picks] = await Promise.all([
-    source.candidates(),
-    source.results(),
-    source.picks(),
-  ]);
+  let candidates: MergeInput["candidates"];
+  let results: MergeInput["results"];
+  let picks: MergeInput["picks"];
+  try {
+    [candidates, results, picks] = await Promise.all([
+      source.candidates(),
+      source.results(),
+      source.picks(),
+    ]);
+  } catch (error) {
+    // Fail safe: do not touch the good combo when an input is unreachable.
+    return {
+      combos: [],
+      dropped: [],
+      registered: false,
+      registrationError: (error as Error).message,
+    };
+  }
+
+  if (candidates.length === 0) {
+    return {
+      combos: [],
+      dropped: [],
+      registered: false,
+      registrationError: "no free model candidates found; kept the last good combo",
+    };
+  }
 
   const built = buildCombos({ candidates, results, picks, user });
   const combos = allSnapshots(built);
