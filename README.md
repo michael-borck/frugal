@@ -76,6 +76,8 @@ frugal verify --provider cf --limit 5
 
 Probing spends a small amount of quota (one token per model), so the default is a limited spread. The dashboard password is held in memory for setup only; the created/reused `sk-` key is what the harness configs use.
 
+Unattended: `frugal setup --yes --harness pi|opencode|both|msty|none [--verify]` needs `FRUGAL_ROUTER_PASSWORD` or `FRUGAL_ROUTER_KEY` and skips the provider menu.
+
 ## Adding providers
 
 `frugal setup` can add free providers for you through 9Router's API: OpenCode Free (no key), OpenRouter, Groq, Cloudflare (API token + Account ID), Kilo, NVIDIA, Mistral and Gemini. It asks for the key, validates it (`/api/providers/validate`), creates the connection (`/api/providers`) and stores nothing locally; the key lives in 9Router. OAuth providers (Kiro, Gemini CLI, Copilot) still use 9Router's browser flow.
@@ -105,9 +107,13 @@ npm run clean-test -- --dry-run        # print the plan
 npm run clean-test                     # stop the port (asks), run setup, clean up
 npm run clean-test -- --isolated-home  # also keep Pi/OpenCode configs in the temp HOME
 npm run clean-test -- --keep           # keep the temp dir afterwards
+npm run clean-test -- --yes            # unattended: --yes --harness pi
+npm run clean-test -- --yes --harness none --verify
 ```
 
 It runs frugal with an isolated `FRUGAL_HOME` and a fresh 9Router `DATA_DIR`, sets `test1234` as the fresh instance's dashboard password, and stops/removes everything on exit. It never touches `~/.9router`.
+
+`--yes` runs `frugal setup --yes --harness <name>` with no prompts. Non-interactive setup still needs `FRUGAL_ROUTER_PASSWORD` (the script sets it) or `FRUGAL_ROUTER_KEY`; it skips provider entry, so add providers in 9Router first or re-run interactively. `--verify` opts into the model probes in unattended mode. Use `--harness none` for a smoke test that writes no harness config.
 
 Manual equivalent:
 

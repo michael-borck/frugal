@@ -19,6 +19,9 @@ STOP_PORT=1
 KEEP=0
 DRY=0
 ISOLATE_HOME=0
+YES=0
+HARNESS="pi"
+VERIFY=0
 
 usage() {
   cat <<'EOF'
@@ -30,6 +33,9 @@ Usage: scripts/frugal-clean-test.sh [options]
   --keep              Keep the temp dir after the run
   --isolated-home     Put HOME/XDG in the temp dir so Pi/OpenCode configs are not touched
   --dry-run           Print the plan and exit without touching the port or running setup
+  --yes, -y           Run frugal setup unattended (passes --yes --harness <name>)
+  --harness <name>    Harness for unattended runs: pi|opencode|both|msty|none (default pi)
+  --verify            Verify models even when unattended (spends a little quota)
   -h, --help          This help
 
 Environment overrides: FRUGAL_CLEAN_DIR, FRUGAL_CLEAN_PASSWORD
@@ -44,6 +50,9 @@ while [[ $# -gt 0 ]]; do
     --keep) KEEP=1; shift ;;
     --isolated-home) ISOLATE_HOME=1; shift ;;
     --dry-run) DRY=1; shift ;;
+    --yes|-y) YES=1; shift ;;
+    --harness) HARNESS="${2:?--harness needs a value}"; shift 2 ;;
+    --verify) VERIFY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -68,6 +77,8 @@ echo "  dashboard pw:    $PASSWORD"
 [[ $ISOLATE_HOME -eq 1 ]] && echo "  HOME (isolated): $HOME"
 
 if [[ $DRY -eq 1 ]]; then
+  [[ $YES -eq 1 ]] && echo "  unattended:      --yes --harness $HARNESS"
+  [[ $VERIFY -eq 1 ]] && echo "  verify:          yes"
   echo "  dry run: not stopping the port, not running setup"
   exit 0
 fi
@@ -80,7 +91,13 @@ if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:20128 -sTCP:LISTEN >/dev/nu
     echo "Refusing to continue with a busy port (--no-stop)." >&2
     exit 1
   fi
-  if [[ -t 0 ]]; then
+  if [[ $YES -eq 1 ]]; then
+    for pid in $(lsof -tiTCP:20128 -sTCP:LISTEN); do
+      echo "Stopping PID $pid (--yes)"
+      kill "$pid" 2>/dev/null || true
+    done
+    sleep 1
+  elif [[ -t 0 ]]; then
     read -r -p "Stop it so frugal can start its own 9Router? [y/N] " answer
     case "$answer" in
       y|Y)
@@ -96,7 +113,7 @@ if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:20128 -sTCP:LISTEN >/dev/nu
         ;;
     esac
   else
-    echo "Non-interactive shell; stop it yourself or pass --no-stop." >&2
+    echo "Non-interactive shell; pass --yes to stop it automatically or --no-stop to abort." >&2
     exit 1
   fi
 fi
@@ -123,7 +140,14 @@ fi
 
 echo
 echo "Starting frugal setup..."
-(cd "$ROOT" && node "$CLI" setup)
+SETUP_ARGS=(setup)
+if [[ $YES -eq 1 ]]; then
+  SETUP_ARGS+=(--yes --harness "$HARNESS")
+fi
+if [[ $VERIFY -eq 1 ]]; then
+  SETUP_ARGS+=(--verify)
+fi
+(cd "$ROOT" && node "$CLI" "${SETUP_ARGS[@]}")
 
 echo
 echo "Done. If you used the default password, the 9Router dashboard is at:"

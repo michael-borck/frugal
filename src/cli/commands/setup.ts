@@ -16,7 +16,7 @@ import { writeOpenCodeConfig } from "../../core/integrations/opencode.js";
 import { mstyGuide } from "../../core/integrations/msty.js";
 import type { IntegrationResult } from "../../core/integrations/base.js";
 import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
-import { type Command, type CommandContext, jsonOut } from "../command.js";
+import { type Command, type CommandContext, jsonOut, UsageError } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
 const PROBE_LIMIT = 10;
@@ -64,6 +64,10 @@ export interface SetupDeps {
   detectLocal?: (fetchImpl?: typeof fetch) => Promise<LocalProbe[]>;
   /** Injected for tests; otherwise a RouterSession is created after login. */
   session?: SessionApi;
+  /** Skip all prompts; requires FRUGAL_ROUTER_PASSWORD or FRUGAL_ROUTER_KEY. */
+  nonInteractive?: boolean;
+  harness?: "pi" | "opencode" | "both" | "msty" | "none";
+  verify?: boolean;
 }
 
 function routerBase(): string {
@@ -155,6 +159,7 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   const prompter = deps.prompter;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const detectLocal = deps.detectLocal ?? ((f) => detectLocalServers(f));
+  const nonInteractive = deps.nonInteractive ?? false;
   const say = (message: string): void => {
     if (!ctx.json) prompter.info(message);
   };
@@ -174,6 +179,11 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   if (deps.routerManager) {
     if (await deps.routerManager.isRunning()) {
       say(`9Router is running at ${routerBase()}.`);
+    } else if (nonInteractive) {
+      say("Starting 9Router (pinned)... this can take a minute.");
+      const started = await deps.routerManager.start();
+      say(started.detail);
+      if (!started.started && !started.alreadyRunning) return 1;
     } else {
       const install = await prompter.confirm(
         "9Router is not running. Install and start the pinned version now?",
@@ -194,8 +204,13 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   let key = (process.env.FRUGAL_ROUTER_KEY ?? "").trim();
 
   if (!session && !key) {
+    const envPassword = (process.env.FRUGAL_ROUTER_PASSWORD ?? "").trim();
+    if (!envPassword && nonInteractive) {
+      say("Non-interactive setup needs FRUGAL_ROUTER_PASSWORD or FRUGAL_ROUTER_KEY.");
+      return 1;
+    }
     const password =
-      (process.env.FRUGAL_ROUTER_PASSWORD ?? "").trim() ||
+      envPassword ||
       (await prompter.secret("9Router dashboard password (Enter to skip session):")).trim();
     if (password) {
       const candidate = new RouterSession({ fetchImpl });
@@ -215,8 +230,12 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   say("");
 
   if (session) {
-    say("Add free providers now; keys go straight to 9Router, not frugal.");
-    await addProviders(session, prompter, say);
+    if (nonInteractive) {
+      say("Skipping provider setup (non-interactive). Add providers in 9Router, then re-run.");
+    } else {
+      say("Add free providers now; keys go straight to 9Router, not frugal.");
+      await addProviders(session, prompter, say);
+    }
   } else {
     say("Connect free providers in 9Router (keys are stored in 9Router, not frugal):");
     for (const provider of GUIDED_PROVIDERS) {
@@ -224,7 +243,12 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
       say(`  - ${provider.label}${provider.note ? ` (${provider.note})` : ""}${link}`);
     }
     say(`  Dashboard: ${routerBase()}/dashboard → Providers`);
-    await prompter.confirm("Have you connected at least one provider? (You can add more later)", true);
+    if (!nonInteractive) {
+      await prompter.confirm(
+        "Have you connected at least one provider? (You can add more later)",
+        true,
+      );
+    }
   }
 
   say("");
@@ -278,10 +302,14 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   ].sort();
   say(`9Router advertises ${ids.length} models across: ${prefixes.join(", ") || "(none)"}.`);
 
-  const shouldVerify = await prompter.confirm(
-    `Verify a spread of models now? (up to ${PROBE_LIMIT} tiny requests)`,
-    !ctx.json && Boolean(process.stdin.isTTY),
-  );
+  const shouldVerify =
+    deps.verify ??
+    (nonInteractive
+      ? false
+      : await prompter.confirm(
+          `Verify a spread of models now? (up to ${PROBE_LIMIT} tiny requests)`,
+          !ctx.json && Boolean(process.stdin.isTTY),
+        ));
   let results: ProbeResult[] = [];
   if (shouldVerify) {
     const candidates = selectCandidates(ids, PROBE_LIMIT);
@@ -336,16 +364,20 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     say("No models verified yet. Connect providers, then run frugal verify to build the order.");
   }
 
-  const harness = await prompter.select<"pi" | "opencode" | "both" | "msty">(
-    "Which harness should frugal configure?",
-    [
-      { label: "Pi (recommended for older laptops)", value: "pi" },
-      { label: "OpenCode", value: "opencode" },
-      { label: "Both", value: "both" },
-      { label: "Msty guide only", value: "msty" },
-    ],
-    "pi",
-  );
+  const harness =
+    deps.harness ??
+    (nonInteractive
+      ? "pi"
+      : await prompter.select<"pi" | "opencode" | "both" | "msty">(
+          "Which harness should frugal configure?",
+          [
+            { label: "Pi (recommended for older laptops)", value: "pi" },
+            { label: "OpenCode", value: "opencode" },
+            { label: "Both", value: "both" },
+            { label: "Msty guide only", value: "msty" },
+          ],
+          "pi",
+        ));
 
   const applied: IntegrationResult[] = [];
   const baseUrl = `${routerBase()}/v1`;
@@ -365,7 +397,7 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     say("");
     say("Msty: paste these into Settings → Remote Providers (OpenAI-compatible):");
     for (const step of msty.steps) say(`  ${step}`);
-  } else {
+  } else if (harness !== "none") {
     say(`Msty (optional): base ${msty.baseUrl}, model ${msty.model}, key from the 9Router dashboard.`);
   }
 
@@ -394,15 +426,61 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   return 0;
 }
 
+interface SetupFlags {
+  yes: boolean;
+  verify: boolean;
+  harness?: "pi" | "opencode" | "both" | "msty" | "none";
+}
+
+function parseSetupFlags(args: string[]): SetupFlags {
+  const flags: SetupFlags = { yes: false, verify: false };
+  const harnesses = new Set(["pi", "opencode", "both", "msty", "none"]);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === "--yes" || arg === "-y") {
+      flags.yes = true;
+      continue;
+    }
+    if (arg === "--verify") {
+      flags.verify = true;
+      continue;
+    }
+    if (arg === "--harness") {
+      const value = args[++index];
+      if (!value || !harnesses.has(value)) {
+        throw new UsageError("--harness needs pi|opencode|both|msty|none");
+      }
+      flags.harness = value as SetupFlags["harness"];
+      continue;
+    }
+    if (arg.startsWith("--harness=")) {
+      const value = arg.slice("--harness=".length);
+      if (!harnesses.has(value)) {
+        throw new UsageError("--harness needs pi|opencode|both|msty|none");
+      }
+      flags.harness = value as SetupFlags["harness"];
+      continue;
+    }
+    throw new UsageError(`unexpected argument: ${arg}`);
+  }
+  return flags;
+}
+
 export const setupCommand: Command = {
   name: "setup",
   summary: "Opinionated 9Router setup: connect providers, verify models, wire a harness.",
   group: "Everyday",
-  async run(ctx: CommandContext, _args: string[]) {
-    const nonInteractive = ctx.json || !process.stdin.isTTY;
+  async run(ctx: CommandContext, args: string[]) {
+    const flags = parseSetupFlags(args);
+    const nonInteractive = flags.yes || ctx.json || !process.stdin.isTTY;
     const prompter: Prompter = nonInteractive ? new DefaultPrompter() : new ReadlinePrompter();
-    const deps: SetupDeps = { prompter };
-    if (!nonInteractive) {
+    const deps: SetupDeps = {
+      prompter,
+      nonInteractive,
+      harness: flags.harness,
+      verify: flags.verify,
+    };
+    if (!ctx.json) {
       deps.routerManager = new RouterManager({ configDir: ctx.paths.configDir });
     }
     try {

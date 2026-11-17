@@ -251,6 +251,62 @@ describe("runSetup (thin)", () => {
     expect(config.model).toBe("router9/free-best");
   });
 
+  it("runs non-interactively with an injected session", async () => {
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session: makeSession(),
+      nonInteractive: true,
+      harness: "pi",
+      verify: false,
+    });
+    expect(code).toBe(0);
+    expect(prompter.infos.join("\n")).toMatch(/Skipping provider setup \(non-interactive\)/);
+    const models = JSON.parse(
+      await fs.readFile(path.join(home, ".pi", "agent", "models.json"), "utf8"),
+    );
+    expect(models.providers["9router"].models.map((m: { id: string }) => m.id)).toEqual([
+      "free-best",
+    ]);
+  });
+
+  it("non-interactive fails without credentials", async () => {
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      nonInteractive: true,
+      harness: "none",
+    });
+    expect(code).toBe(1);
+  });
+
+  it("harness none skips config writes", async () => {
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session: makeSession(),
+      nonInteractive: true,
+      harness: "none",
+      verify: false,
+    });
+    expect(code).toBe(0);
+    await expect(
+      fs.access(path.join(home, ".pi", "agent", "models.json")),
+    ).rejects.toBeTruthy();
+    await expect(
+      fs.access(path.join(home, ".config", "opencode", "opencode.json")),
+    ).rejects.toBeTruthy();
+  });
+
   it("returns an error when there are no credentials", async () => {
     const prompter = new ScriptedPrompter({ confirms: [true], secrets: [""] });
     const code = await runSetup(ctx, {
