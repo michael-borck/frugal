@@ -1,7 +1,7 @@
 ### frugal and frugal-bench: Project Specs
 Nov 16, 2026 · @Michael Borck
 ### 1. Overview
-Students who cannot afford AI subscriptions need coding agents that keep working when one free quota runs out, with no setup skill required. Two projects deliver that: frugal (a one-command installer and updater that configures a local 9Router with a ranked fallback chain of free, local and optional low-cost models and wires it into the student&apos;s tools) and frugal-bench (a separate automated benchmark that measures free, low-cost and local models and publishes the ranking frugal uses).
+Students who cannot afford AI subscriptions need coding agents that keep working when one free quota runs out, with no setup skill required. Two projects deliver that: frugal (a one-command installer and updater that configures a local 9Router with a ranked fallback chain of free, local and optional low-cost models and wires it into the student's tools) and frugal-bench (a separate automated benchmark that measures free, low-cost and local models and publishes the ranking frugal uses).
 Goals
 A student goes from nothing to a working, auto-failover coding setup in under 10 minutes, with two short signups (OpenRouter and Groq) as the only manual steps.
 The default model order is data-driven and refreshed automatically, with no per-run human judgment.
@@ -13,7 +13,7 @@ No sharing of keys or accounts, and no creating extra accounts to evade limits.
 No paid routing by default: paid plans only in the opt-in budget tier, under the cap, and never Claude or ChatGPT subscriptions.
 No attempt to make free models match paid ones; the goal is the best available order.
 How the two projects relate
-They share one interface, two static files: the ranking file (results.json) from frugal-bench and the instructor&apos;s override file (picks.json), both read by frugal. frugal must work without frugal-bench by falling back to usage-based ranking from OpenRouter, so the projects can be built and shipped independently.
+They share one interface, two static files: the ranking file (results.json) from frugal-bench and the instructor's override file (picks.json), both read by frugal. frugal must work without frugal-bench by falling back to usage-based ranking from OpenRouter, so the projects can be built and shipped independently.
 Naming. The project is frugal: students type the command frugal, the npm package is frugalrouter (the bare name is probably taken), and the benchmark is frugal-bench. It was renamed from the working names freerouter and then cheaprouter, because "free" overpromised once paid tiers were added and "cheap" read as low quality. The tier name free and the combo name free-best keep their names because they describe the free tier.
 Tiers. One setting, tier, decides which providers frugal may use.
 Tier
@@ -29,10 +29,10 @@ No
 The free providers plus one or two paid plans from the approved list
 Up to the cap
 The cap is max_monthly_usd, with a ceiling of $40 that the instructor can lower. frugal refuses to enable a plan whose listed price exceeds the cap. Flat-fee subscriptions cannot overspend; per-token API keys can, so they are not offered by default and need a spend limit set at the provider.
-Order of preference. The default order comes from frugal-bench, and the student can override it. Highest priority first: (1) the student&apos;s own pins and bans, (2) the instructor&apos;s picks, (3) the frugal-bench tier and score, (4) OpenRouter usage rank as the tiebreaker. A student can also lock a single model, which turns off failover for that session.
+Order of preference. The default order comes from frugal-bench, and the student can override it. Highest priority first: (1) the student's own pins and bans, (2) the instructor's picks, (3) the frugal-bench tier and score, (4) OpenRouter usage rank as the tiebreaker. A student can also lock a single model, which turns off failover for that session.
 Local models. frugal handles a locally installed model (through Ollama, llama.cpp or Kindi) as a first-class provider alongside the cloud free models, not as an afterthought. A local_mode setting, stored in user.json, decides how local and cloud models combine (section 4). The instructor runs frugal-bench and publishes the local reference results so that students can read them and make up their own minds; the reference informs the choice but never makes it for them.
 ### 2. Project 1: frugal, scope and requirements
-frugal is a cross-platform command-line tool that installs and configures a pinned version of 9Router for one student, keeps its combos current, and connects the student&apos;s coding tools to it.
+frugal is a cross-platform command-line tool that installs and configures a pinned version of 9Router for one student, keeps its combos current, and connects the student's coding tools to it.
 Users
 User
 Needs
@@ -51,7 +51,7 @@ F2
 Set a random dashboard password and API key during setup; never use defaults
 Must
 F3
-Prompt for the student&apos;s own OpenRouter API key and validate it with a test call
+Prompt for the student's own OpenRouter API key and validate it with a test call
 Must
 F4
 Enable the OpenCode Free provider (no auth) automatically
@@ -72,7 +72,7 @@ F9
 doctor command that checks every link in the chain and says what to fix
 Must
 F10
-Fetch the instructor&apos;s picks.json and merge it with the automatic ranking
+Fetch the instructor's picks.json and merge it with the automatic ranking
 Should
 F11
 Keep the last good combo if any network fetch fails
@@ -81,7 +81,7 @@ F12
 Optional extra free providers (for example Kiro) with guided OAuth
 Could
 F13
-Uninstall that restores each tool&apos;s original config from backups
+Uninstall that restores each tool's original config from backups
 Should
 Added requirements: tiers, overrides and failover
 ID
@@ -109,7 +109,7 @@ F20
 Guide eligible students to activate Copilot Student and connect it directly in OpenCode
 Should
 F21
-Keep 9Router&apos;s token saver on by default and offer a per-request bypass
+Keep 9Router's token saver on by default and offer a per-request bypass
 Should
 F22
 Treat a local model server (Ollama, llama.cpp, Kindi) as a first-class provider with a local_mode setting of fallback, first or only
@@ -118,7 +118,7 @@ Platforms: Windows, macOS and Linux, with Node.js as the only prerequisite. If N
 ### 3. Project 1: architecture, commands and setup flow
 
 frugal and frugal-bench architecture · 2 projects, 1 interface
-frugal is the only piece on the student&apos;s machine. It pulls rankings from the hosted files and OpenRouter, builds the combo in 9Router, and the three tools talk only to 9Router, except Copilot Student, which connects inside OpenCode.
+frugal is the only piece on the student's machine. It pulls rankings from the hosted files and OpenRouter, builds the combo in 9Router, and the three tools talk only to 9Router, except Copilot Student, which connects inside OpenCode.
 Commands
 Group
 Command
@@ -161,13 +161,19 @@ frugal add <provider> / frugal remove <provider>
 Guided signup, key test and connection, or disconnect and delete the key
 Upkeep
 frugal report
-Open the instructor&apos;s published benchmark reference
+Open the instructor's published benchmark reference
 Upkeep
 frugal update
 Update frugal itself; each release pins its own tested 9Router version
 Upkeep
 frugal uninstall
-Stop everything and restore each tool&apos;s original config from backup
+Stop everything and restore each tool's original config from backup
+Observability (v0.2, optional)
+frugal watch
+Poll 9Router's usage API (last-served model, per-request prompt tokens, per-connection quota) and raise desktop notifications; informational only
+Observability (v0.2, optional)
+frugal mcp
+Run a read-only MCP server that exposes router status and quota as a tool/resource inside supported harnesses (OpenCode first)
 CLI rules
 Every command works with no flags in normal use and is safe to run twice.
 Errors say what to type next, for example "Groq key rejected. Run frugal add groq to replace it."
@@ -177,27 +183,27 @@ Setup flow
 Check that Node.js is installed; if not, explain how to get it and stop.
 Download the pinned 9Router release, verify its checksum, and start it on 127.0.0.1.
 Set a random dashboard password and API key.
-Show the privacy notice, then ask for the student&apos;s OpenRouter key and test it.
+Show the privacy notice, then ask for the student's OpenRouter key and test it.
 Enable OpenCode Free, then guide the student through signing up for and testing the default providers (OpenRouter and Groq), and offer the optional ones. Detect any local model server (Ollama, llama.cpp or Kindi) and offer to add it.
 Ask for the tier and local_mode, then fetch rankings and picks, and build the free-best combo, plus budget-best on the budget tier.
 Configure OpenCode and Pi, and show the Msty paste guide.
 Run doctor and send one test message through the router.
 ### 4. Project 1: ranking, providers, tiers and failover
 The combo is built in four steps, and each step must fail safe: if any input is unreachable, frugal keeps the last good combo and says so in doctor.
-Candidates. Fetch OpenRouter&apos;s model list and keep entries whose prompt and completion price is $0 (the :free models). Add the models served by the other providers the student enabled: free providers such as OpenCode Free, a local server, and on the budget tier their paid plan.
-Filters. Drop any candidate that is not text-output, lacks tool-calling support, has a context window below 128K tokens (configurable; local models use a lower minimum of their own, since they rarely run at 128K), or is on the instructor&apos;s ban list. This removes safety classifiers, rerankers and tiny models that appear in free lists but are useless for coding agents.
+Candidates. Fetch OpenRouter's model list and keep entries whose prompt and completion price is $0 (the :free models). Add the models served by the other providers the student enabled: free providers such as OpenCode Free, a local server, and on the budget tier their paid plan.
+Filters. Drop any candidate that is not text-output, lacks tool-calling support, has a context window below 128K tokens (configurable; local models use a lower minimum of their own, since they rarely run at 128K), or is on the instructor's ban list. This removes safety classifiers, rerankers and tiny models that appear in free lists but are useless for coding agents.
 Score. Order by the first source available, in this priority:
 frugal-bench results.json composite score, grouped into tiers (see section 8)
-OpenRouter&apos;s free-model usage ranking over the trailing 7 days, as the fallback and as the tiebreaker within a tier
-Merge instructor picks. Apply picks.json: pinned models go first in the stated order, banned models are removed, preferred models get a bonus within their tier. Then apply the student&apos;s own overrides (section 10 merge order), cap the combo at 8 to 10 entries and write it to 9Router; the free tier&apos;s combo is named free-best.
+OpenRouter's free-model usage ranking over the trailing 7 days, as the fallback and as the tiebreaker within a tier
+Merge instructor picks. Apply picks.json: pinned models go first in the stated order, banned models are removed, preferred models get a bonus within their tier. Then apply the student's own overrides (section 10 merge order), cap the combo at 8 to 10 entries and write it to 9Router; the free tier's combo is named free-best.
 Ranking caveat. Usage rankings measure adoption, not quality, so they are a fallback and tiebreaker only. When frugal-bench results are older than 45 days, frugal warns in doctor and relies more on usage rank.
 Refresh triggers
 On every frugal start, if the combo is older than 24 hours.
 Weekly via the OS scheduler.
 When the free model list differs from the last run: a removed model leaves the combo immediately; a new model enters only once frugal-bench has scored it, or after a 7-day grace if the benchmark is unavailable.
-Request limits. The combo cannot raise OpenRouter&apos;s per-account free cap (20 requests per minute, and 50 per day until $10 has ever been purchased, then 1,000 per day). Its job is to spread requests across providers, so the default setup must include at least one provider besides OpenRouter.
+Request limits. The combo cannot raise OpenRouter's per-account free cap (20 requests per minute, and 50 per day until $10 has ever been purchased, then 1,000 per day). Its job is to spread requests across providers, so the default setup must include at least one provider besides OpenRouter.
 Provider list and accounts
-9Router runs locally and is not an online broker; it forwards requests to the providers below, so each student needs an account with every provider they enable. The default set needs only two signups (OpenRouter and Groq). Limits and data terms below come from third-party surveys read in September and October 2026 and must be re-checked against each provider&apos;s own page before rollout.
+9Router runs locally and is not an online broker; it forwards requests to the providers below, so each student needs an account with every provider they enable. The default set needs only two signups (OpenRouter and Groq). Limits and data terms below come from third-party surveys read in September and October 2026 and must be re-checked against each provider's own page before rollout.
 Provider
 Role
 Account
@@ -216,7 +222,7 @@ Depends on who serves the model; may log
 Groq
 Default
 Free signup, no card
-Published per model; exact limits shown in the account&apos;s limits page
+Published per model; exact limits shown in the account's limits page
 States it does not train on API data
 GitHub Copilot Student
 Optional, free for verified students
@@ -266,23 +272,23 @@ Some plans restrict the key to named tools; check terms before routing through 9
 Local server (Ollama, llama.cpp, Kindi)
 Optional, first-class
 Install an engine and a model; no account
-No quota; limited by the student&apos;s GPU and model size
-Stays on the student&apos;s machine
-Not included. Claude Pro or Max and Codex or ChatGPT subscriptions are out of scope. Anthropic&apos;s terms restrict subscription sign-in to Claude Code and claude.ai, and it has enforced that against third-party tools including OpenCode, so routing a Claude subscription through 9Router risks account suspension; a Claude API key bills per token and is not subscription pricing. OpenAI is more permissive toward third-party tools, but these plans cost more than the student cap and should not be routed through a proxy without checking OpenAI&apos;s current terms. xAI (Grok) subscriptions are tied to its own CLI, and API use bills per token. Meta&apos;s Muse Spark is offered through a usage-based API and has no known free or subscription option. Cerebras credits require a verified payment method, and Cohere offers only a trial key. OpenCode Zen is pay-as-you-go and is not part of the student setup.
+No quota; limited by the student's GPU and model size
+Stays on the student's machine
+Not included. Claude Pro or Max and Codex or ChatGPT subscriptions are out of scope. Anthropic's terms restrict subscription sign-in to Claude Code and claude.ai, and it has enforced that against third-party tools including OpenCode, so routing a Claude subscription through 9Router risks account suspension; a Claude API key bills per token and is not subscription pricing. OpenAI is more permissive toward third-party tools, but these plans cost more than the student cap and should not be routed through a proxy without checking OpenAI's current terms. xAI (Grok) subscriptions are tied to its own CLI, and API use bills per token. Meta's Muse Spark is offered through a usage-based API and has no known free or subscription option. Cerebras credits require a verified payment method, and Cohere offers only a trial key. OpenCode Zen is pay-as-you-go and is not part of the student setup.
 Rules
-Every provider is added as a separate 9Router connection with the student&apos;s own key; keys are never shared between students.
-frugal-bench records each provider&apos;s observed errors and limits per run, so published limits are never trusted blindly.
+Every provider is added as a separate 9Router connection with the student's own key; keys are never shared between students.
+frugal-bench records each provider's observed errors and limits per run, so published limits are never trusted blindly.
 The setup flow explains each signup in two or three plain steps and tests the key before enabling the provider.
 Tiers and spending cap
-The free tier builds one combo, free-best, from free providers only. The budget tier builds budget-best: models from the student&apos;s paid plan come first, ranked by frugal-bench score, with the free models after them as overflow when the plan&apos;s limit is reached.
-Setup asks for the tier, defaulting to free. Choosing budget requires the student to confirm the plan&apos;s monthly price and the cap in plain words.
+The free tier builds one combo, free-best, from free providers only. The budget tier builds budget-best: models from the student's paid plan come first, ranked by frugal-bench score, with the free models after them as overflow when the plan's limit is reached.
+Setup asks for the tier, defaulting to free. Choosing budget requires the student to confirm the plan's monthly price and the cap in plain words.
 Only flat-fee plans are offered. Per-token API keys sit behind an advanced flag and require a spend limit set at the provider.
 The paid plan must permit use through a generic OpenAI-compatible endpoint. A plan that restricts its key to named tools is not offered until its terms are checked.
 Student overrides
 Command
 Effect
 frugal models
-Shows the combo in order and each model&apos;s state
+Shows the combo in order and each model's state
 frugal prefer <model>
 Puts the model first; failover continues beneath it
 frugal ban <model>
@@ -293,24 +299,27 @@ frugal reset [model]
 Clears one override, or all of them
 Overrides are stored in a local user.json (section 10) and survive refreshes. If a preferred model disappears from the free list, frugal drops it from the active combo, tells the student, and restores it automatically if it returns.
 Failover, compaction and switch-back
-Context guard. Before each request, estimate the prompt size and skip models whose context window is smaller. If no model fits, tell the student to compact or start a new session. It is unverified whether 9Router does this itself.
-Compaction. The harness does this, not the router. Confirm that OpenCode and Pi compact automatically when the context fills, and that a smaller fallback model triggers it. frugal does not summarize on its own in version 1.
-Cooldown. When a model returns a rate-limit error, mark it unavailable until the reset time in the response, or a default backoff (about one minute for per-minute limits, until 00:00 UTC for daily limits), and skip it meanwhile. Verify whether 9Router already does this for free providers; if not, frugal adds the layer.
-Switch back. When a cooldown ends, the better model is eligible again and the next request tries it first. Limit switch-backs to once every five minutes per model to avoid flapping, and prefer switching at a new session or after compaction, because provider-side prompt caches are lost at every switch.
-Quota reads. OpenRouter&apos;s key endpoint reports used, limit and remaining free requests for the current UTC day, so frugal reads it at session start and periodically instead of probing. Providers without a quota API rely on error responses.
-Visibility. frugal status shows each model as available or cooling down, with the next reset time.
+Division of responsibility. frugal is a configurator and never sits in the request path. 9Router owns failover, cooldowns, quota tracking and context handling; the harness owns compaction. frugal's job here is to configure both correctly and to document the behaviour. See docs/FALLBACK-AND-CONTEXT.md.
+Quality fall-off. Because a combo fails over silently, the assistant's quality, style and tool-call reliability can change mid-conversation when the router switches models. This is expected. frugal-bench's tiers predict the drop but cannot prevent it; combos are ordered by tier so the best model answers first. Students are told that a late-session answer may come from a weaker model.
+Context window is not a rate limit. Rate limits (requests and tokens per minute/day) cause 429s and drive failover; they may be published by the provider or discovered from response headers or by hitting 429. The context window is the maximum tokens a model accepts; it is a model property published in the catalog (OpenRouter /api/v1/models context_length, 9Router /v1/models) and it drives compaction, not failover. A provider that posts no rate-limit numbers therefore does not prevent knowing when to compact, because compaction keys off the known context window.
+The chicken-and-egg is mostly avoided natively. 9Router classifies a 400 context-overflow as request-scoped and deliberately does not fail over, so an oversized request does not burn through the combo. OpenCode compacts automatically near the model's window and recovers once when a provider rejects a request as too long. The remaining risk is a harness mis-detecting the combo's context window, because a combo exposes one name (free-best) and some clients fall back to a fixed budget when they cannot see the true window; if the harness assumes the combo is larger than its smallest member, compaction fires too late.
+frugal's role. (1) Write the harness's own compaction settings where supported: for OpenCode, the compaction block (auto, buffer as a share of the window or a token count, keep.tokens), set conservatively. (2) Where the provider model schema allows a context limit, declare the combo's minimum window across its members. (3) Document that long sessions should be compacted or restarted. This fires compaction before the smallest fallback is reached, so the common case never hits overflow. frugal does not summarize on its own and does not become a proxy.
+Cooldown. 9Router marks a rate-limited model unavailable until the reset time in the response (or a default backoff) and skips it. frugal reads and reports this state; it does not own it. Verify in the spike that 9Router applies it for free providers.
+Switch back. 9Router returns to the better model when a cooldown ends. Provider-side prompt caches are lost at each switch, so switching at a new session or after compaction is preferred. frugal surfaces the current model in status but does not drive switching.
+Quota reads. 9Router tracks quota and exposes it through its usage API (for example /api/usage/stats, /api/usage/request-details and per-connection quota). frugal reads it for status; providers without a quota API rely on error responses.
+Visibility. frugal status shows the tier, the configured combos, the last model served and quota where available. Live per-model cooldowns are shown by 9Router; frank honesty in the UI is preferred to guessing.
 Token savers and caching
-9Router&apos;s RTK token saver compresses large tool outputs (git diff, grep, ls) before they reach the model and reportedly saves 20 to 40% of input tokens. Keep it on by default, with a per-request bypass.
-Caveman Mode and similar prompt injections change the model&apos;s behavior and stay off.
+9Router's RTK token saver compresses large tool outputs (git diff, grep, ls) before they reach the model and reportedly saves 20 to 40% of input tokens. Keep it on by default, with a per-request bypass.
+Caveman Mode and similar prompt injections change the model's behavior and stay off.
 Prompt caching happens at the provider. It is unconfirmed that 9Router preserves cache markers when translating formats, and compression may change the prompt prefix. Test this on a paid plan before relying on it.
 Copilot Student (connected directly, outside the router)
-Verified students get Copilot Student at no cost through GitHub Education, with monthly re-checks, an unpublished credit allowance and automatic model choice only. The student verifies at GitHub&apos;s education benefits page and connects Copilot inside OpenCode using OpenCode&apos;s own GitHub sign-in, not through 9Router. It is therefore outside automatic failover: doctor reports whether it is connected and reminds the student to switch to it by hand when the free providers run out. frugal-bench cannot rank it because the student cannot choose the model.
+Verified students get Copilot Student at no cost through GitHub Education, with monthly re-checks, an unpublished credit allowance and automatic model choice only. The student verifies at GitHub's education benefits page and connects Copilot inside OpenCode using OpenCode's own GitHub sign-in, not through 9Router. It is therefore outside automatic failover: doctor reports whether it is connected and reminds the student to switch to it by hand when the free providers run out. frugal-bench cannot rank it because the student cannot choose the model.
 Local models as a provider
 9Router connects a local server as an OpenAI-compatible connection with a base URL. frugal probes the usual ports (Ollama 11434, llama.cpp server 8080, and Kindi 8093 as in its documentation example) and doctor reports any server it finds.
 By default local models go last in the combo, so cloud free quotas drain first; the local_mode setting below changes this. A student can prefer a local model for privacy, or lock one to avoid any data leaving the machine.
 The context guard handles the smaller windows that local models usually have.
 frugal local check detects the GPU and VRAM, finds a running local server (or says how to start one), runs a 10-task subset of the Code suite and a speed test, and prints a comparison against the current top free cloud model: score, speed, limits and privacy. It uses no cloud quota.
-Installing a local engine (drivers, Docker, WSL2) is outside the setup flow; frugal links to each engine&apos;s own instructions. Kindi is a supported engine: it is AGPL-3.0, its installer is a curl | bash script that needs Docker or WSL2, and frugal never runs it automatically.
+Installing a local engine (drivers, Docker, WSL2) is outside the setup flow; frugal links to each engine's own instructions. Kindi is a supported engine: it is AGPL-3.0, its installer is a curl | bash script that needs Docker or WSL2, and frugal never runs it automatically.
 Local mode
 local_mode value
 Behavior
@@ -319,29 +328,30 @@ Local models sit last in the combo; cloud providers are tried first and drain fi
 first
 Local models are primary; cloud providers take over when the local model is too slow, too small for the context, or not running
 only
-Only local models are used, and no request leaves the student&apos;s machine
+Only local models are used, and no request leaves the student's machine
 The setting can be changed at any time, status shows the active mode, and doctor warns if first or only is set but no local server is running. Every local model counts as a normal combo member for the context guard, cooldown and prefer, ban and lock rules.
 ### 5. Project 1: tool integrations
 Every tool connects to the same local endpoint, http://localhost:20128/v1, with the API key frugal generated and the model name free-best. A skills folder is not used, because skills are agent instructions, not provider configuration.
-Tool
-Method
-Confidence
-OpenCode
-Write a custom OpenAI-compatible provider entry into OpenCode&apos;s JSON config, set free-best as the default model, back up the original file first
-Likely works; verify exact config schema and file path per OS
-Pi
-Install the community 9Router extension, which auto-discovers models and combos and stores its settings in ~/.pi/agent/9router-config.json; write the URL and key there
+Harness priority. OpenCode is the recommended, default harness: it is fully open, configures cleanly from JSON, supports a custom OpenAI-compatible provider, has native automatic compaction with a configurable buffer, and supports MCP. Pi is supported as a very light-weight alternative via its community 9Router extension. Msty.ai is supported through a one-time guided paste because it has no importable config in its free version. frugal wires all three; the setup wizard defaults to OpenCode and offers the others.
+Harness table. Tool, role, method, confidence.
+OpenCode (recommended, default)
+Write a custom OpenAI-compatible provider entry into OpenCode's JSON config, set free-best as the default model, back up the original file first, and write the compaction block (auto, buffer, keep.tokens) so compaction fires before the smallest combo member's window
+Likely works; verify exact config schema, model context limit field and file path per OS
+Pi (supported, lightweight)
+Install the community 9Router extension, which auto-discovers models and combos and stores its settings in ~/.pi/agent/9router-config.json; write the URL and key there. Confirm whether Pi exposes a compaction setting for frugal to write
 Extension confirmed to exist; verify it is maintained and review its code
-Msty (free)
-No known file-based config. Print the three values to paste into Msty&apos;s remote OpenAI-compatible provider screen, copy the key to the clipboard, and show a numbered screenshot guide
+Msty (free, supported via guided paste)
+No known file-based config. Print the three values to paste into Msty's remote OpenAI-compatible provider screen, copy the key to the clipboard, and show a numbered screenshot guide. Msty's own context handling is outside frugal's control
 Unverified; test the real Msty UI before writing the guide
 Rules for every integration
 Back up any config file once before the first change, with a recognizable suffix, and restore it on uninstall.
-Make only additive changes: never remove the student&apos;s other providers.
-After writing, run a one-token test request through the tool&apos;s own path if it has a headless mode; otherwise test the endpoint with curl and tell the student to send one message.
-Never store the OpenRouter key in a tool config; it lives only in 9Router&apos;s data directory.
+Make only additive changes: never remove the student's other providers.
+After writing, run a one-token test request through the tool's own path if it has a headless mode; otherwise test the endpoint with curl and tell the student to send one message.
+Never store the OpenRouter key in a tool config; it lives only in 9Router's data directory.
+Where the harness supports it, write its compaction settings and declare the combo's minimum context window; never proxy or summarize requests on frugal's behalf.
 Open item. Confirm how each tool handles an upstream failure that 9Router already retried, so the student does not see a duplicate retry loop or a long hang before the fallback model answers.
-Directly connected providers. Copilot Student is configured inside OpenCode with OpenCode&apos;s own sign-in, not through the router (section 4). Pi can also connect OpenCode Go directly, so a student on the budget tier can use either path; the router path is the default because it adds failover. Two combos are exposed to every tool: free-best and, on the budget tier, budget-best. Students choose between them by model name.
+Directly connected providers. Copilot Student is configured inside OpenCode with OpenCode's own sign-in, not through the router (section 4). Pi can also connect OpenCode Go directly, so a student on the budget tier can use either path; the router path is the default because it adds failover. Two combos are exposed to every tool: free-best and, on the budget tier, budget-best. Students choose between them by model name.
+Optional observability (v0.2). The default experience is transparent: frugal configures 9Router and the harness so users do nothing. Two opt-in commands make the behaviour visible for power users. frugal watch polls 9Router's usage API (last-served model, per-request prompt tokens as an approximation of current context size, and per-connection quota) and raises desktop notifications; it is informational and cannot trigger compaction. frugal mcp runs a read-only MCP server exposing router status and quota as a tool or resource inside supported harnesses, OpenCode first; it also cannot trigger compaction and costs a tool call. Neither is required, and neither moves frugal into the request path. Details and caveats are in docs/FALLBACK-AND-CONTEXT.md.
 ### 6. Project 1: security, privacy, failure handling and acceptance
 Security
 9Router stores provider keys and tokens locally. Bind it to 127.0.0.1 only, set restrictive file permissions on its data directory, and never print keys in logs or error messages.
@@ -359,7 +369,7 @@ OpenRouter or ranking source unreachable
 Keep last good combo, note it in doctor
 picks.json unreachable or invalid
 Ignore it, use the automatic ranking
-Student&apos;s key rejected or over its daily cap
+Student's key rejected or over its daily cap
 Remove OpenRouter entries from use until reset and explain why
 All combo members exhausted
 Return a clear message naming the reset time instead of hanging
@@ -367,32 +377,32 @@ Return a clear message naming the reset time instead of hanging
 doctor shows the port, the log tail and the likely cause
 Acceptance criteria
 A clean machine with Node installed reaches a working first response from OpenCode in under 10 minutes, with only the default signups (OpenRouter and Groq).
-Killing the top model&apos;s access (simulated 429) makes the next request succeed from the next combo entry with no manual action.
+Killing the top model's access (simulated 429) makes the next request succeed from the next combo entry with no manual action.
 doctor reports green on a healthy setup and names the exact fix for each of the failures above.
 Uninstall restores every modified config byte-for-byte from its backup.
-With local_mode set to only, a network capture during a coding session shows no request leaving the student&apos;s machine.
+With local_mode set to only, a network capture during a coding session shows no request leaving the student's machine.
 ### 7. Project 2: frugal-bench, scope and principles
-frugal-bench is a scheduled job, run by the instructor on one account, that tests every currently free model, any approved paid-plan model it holds a key for, and the local reference set on a fixed suite and publishes a ranked results.json. Students never run its cloud suites, because free tiers are request-capped and a class-wide run would burn every student&apos;s daily quota; the only part students run is the small local subset inside frugal local check, which uses no cloud quota.
+frugal-bench is a scheduled job, run by the instructor on one account, that tests every currently free model, any approved paid-plan model it holds a key for, and the local reference set on a fixed suite and publishes a ranked results.json. Students never run its cloud suites, because free tiers are request-capped and a class-wide run would burn every student's daily quota; the only part students run is the small local subset inside frugal local check, which uses no cloud quota.
 Principles
-Automatic and repeatable. Every score comes from a pass/fail check or a measured number, never from a judge&apos;s opinion. The weights are fixed in a visible config file.
+Automatic and repeatable. Every score comes from a pass/fail check or a measured number, never from a judge's opinion. The weights are fixed in a visible config file.
 Cheap first. A short screening round runs on every model; the full suite runs only on the top half, to fit free request limits.
 Honest about noise. Each task is sampled several times, results carry a confidence range, and models are grouped into tiers instead of being ranked to the decimal.
 Measures what agents need. Tool-call reliability and availability count alongside code correctness, because a strong model that is rate-limited or breaks tool calls is useless in an agent.
 Resistant to gaming. Part of the task set stays private and is rotated, so providers and models cannot tune to it.
 Independent of frugal. The only output is a JSON file with a fixed schema (section 10).
-Run environment. One machine or a scheduled CI job, using the instructor&apos;s OpenRouter key. A one-time purchase of $10 in credits raises the free cap to 1,000 requests per day and keeps the full run inside one day. The runner must read each model&apos;s remaining quota and stop cleanly when it is exhausted, then resume the next day.
+Run environment. One machine or a scheduled CI job, using the instructor's OpenRouter key. A one-time purchase of $10 in credits raises the free cap to 1,000 requests per day and keeps the full run inside one day. The runner must read each model's remaining quota and stop cleanly when it is exhausted, then resume the next day.
 Instructor commands. frugal-bench run (screening and full suite), frugal-bench local (the VRAM-class runs), frugal-bench diff (what changed since the last run) and frugal-bench publish (writes results.json and the reference page). Students never need these.
 Out of scope for version 1: real multi-step agent sessions against a repository. These are the best predictor of student experience but depend on headless modes in OpenCode and Pi that have not been verified; plan them as version 2.
-Coverage of paid tiers. The benchmark&apos;s candidate pool is the free models plus the models of any plan on the approved list that the instructor holds a key for. Benchmarking Go models needs one $10 per month subscription on the instructor&apos;s account, and it is optional; without it, paid models rank by usage and by instructor picks only. Each entry in results.json carries an access field (free or budget) so frugal can place paid models correctly for each tier. Copilot Student is not benchmarked because its model cannot be chosen.
+Coverage of paid tiers. The benchmark's candidate pool is the free models plus the models of any plan on the approved list that the instructor holds a key for. Benchmarking Go models needs one $10 per month subscription on the instructor's account, and it is optional; without it, paid models rank by usage and by instructor picks only. Each entry in results.json carries an access field (free or budget) so frugal can place paid models correctly for each tier. Copilot Student is not benchmarked because its model cannot be chosen.
 Local reference tier
 frugal-bench also scores a small set of local models, so a student can compare running something on their own GPU against the cloud free tiers. This is a module of frugal-bench, not a third project.
-Quality is portable, speed is not. The same model file and quantization give about the same pass rate on any GPU. Quality is measured once on the instructor&apos;s machine with the Code and Tools suites; Availability does not apply because local servers have no rate limits. The Long-context suite runs at the context each class can afford.
+Quality is portable, speed is not. The same model file and quantization give about the same pass rate on any GPU. Quality is measured once on the instructor's machine with the Code and Tools suites; Availability does not apply because local servers have no rate limits. The Long-context suite runs at the context each class can afford.
 VRAM classes: 6, 8 and 12 GB. A candidate qualifies for a class when its weights plus the KV cache at the tested context fit with room for runtime buffers; file size alone is not enough. Published guides place a file of about 6 GB on 8 GB cards and about 10 GB on 12 GB cards. The starting budget (an estimate, to be tuned by measurement) is weights up to 75% of VRAM at 8 and 12 GB and 65% at 6 GB, where fixed overhead takes a larger share.
 Candidates come from model-hub listings by size budget and licence, plus a list the instructor curates. One published guide names Qwen3.5-9B Q4 for 8 GB and Gemma 4 12B or Devstral Small 2 24B at about 3-bit for 12 GB; these are starting candidates, not recommendations, and no source was found for 6 GB.
 Engines. frugal-bench talks to any OpenAI-compatible local endpoint. Ollama, llama.cpp and Kindi are all supported engines; Ollama and llama.cpp are the reference engines for parity checks. Before trusting an engine, run a fixed prompt set with greedy decoding on the same model file under the reference engine and compare outputs; flag any mismatch.
-Speed is measured on the instructor&apos;s reference GPU, recorded by name, and published as tokens per second labelled with that GPU. The student&apos;s own frugal local check gives the number that matters for their card.
-Community results. Speed and verification results that Kindi&apos;s community publishes may be listed as "community-reported" beside frugal-bench&apos;s own measurements, and are never mixed into scores.
-Ranking use. frugal never chooses between local and cloud on the student&apos;s behalf from scores: it shows the comparison and the student sets local_mode. By default they sit last in the combo and appear in the comparison shown by frugal local check, and a student can still pin one.
+Speed is measured on the instructor's reference GPU, recorded by name, and published as tokens per second labelled with that GPU. The student's own frugal local check gives the number that matters for their card.
+Community results. Speed and verification results that Kindi's community publishes may be listed as "community-reported" beside frugal-bench's own measurements, and are never mixed into scores.
+Ranking use. frugal never chooses between local and cloud on the student's behalf from scores: it shows the comparison and the student sets local_mode. By default they sit last in the combo and appear in the comparison shown by frugal local check, and a student can still pin one.
 Published reference. Besides results.json, the instructor publishes a readable reference document, such as a web page, after each benchmark run. For each VRAM class it lists the model, quantization, file size, score with its confidence interval, and speed with the GPU named, followed by the methodology, the date, and any community-reported numbers kept in a separate, labelled section. frugal links to it from frugal local check and doctor. Its purpose is to let students read the evidence and decide for themselves, not to pick a model for them.
 ### 8. Project 2: test suites and scoring
 The composite score is a weighted sum of four suites. The sizes and weights below are starting values, to be tuned once real results show which suites separate models best.
@@ -452,7 +462,7 @@ Rough request budget (estimate, to be measured)
 With about 15 free models, screening needs around 170 requests. The full suite on the top half (about 8 models) at 30 code tasks, 15 tool scenarios, 30 availability probes and 5 long-context prompts, with 3 samples on code, needs roughly 1,100 requests (about 140 per model). A full monthly run therefore fits on the 1,000-per-day tier over one to two days, but not on the unfunded 50-per-day tier.
 Operating rules
 Respect the 20-requests-per-minute limit with a client-side rate limiter and capped retries; uncontrolled retries can use the daily allowance without producing a single usable result.
-Read the account&apos;s remaining free-request count from the API before each batch and stop when it is low, then resume the next UTC day.
+Read the account's remaining free-request count from the API before each batch and stop when it is low, then resume the next UTC day.
 Publish results only when a run completes; a partial run updates only the models it finished, with their own timestamps.
 Keep raw responses for 90 days so that surprising scores can be audited.
 Free endpoints may log prompts, so the benchmark must contain no private data, including in the private task set.
@@ -462,28 +472,28 @@ results.json (written by frugal-bench, one entry per model)
 {  "schema_version": "1.0",  "generated_at": "2026-11-16T02:00:00Z",  "suite_version": "2026.11",  "models": [    {      "id": "vendor/model-name:free",      "provider": "openrouter",      "tier": "A",      "score": 0.71,      "score_ci95": [0.64, 0.78],      "suites": { "code": 0.68, "tools": 0.82, "availability": 0.9, "long_context": 0.6 },      "median_latency_ms": 2400,      "context_tokens": 262144,      "gates_passed": true,      "last_full_run": "2026-11-01",      "last_seen_free": "2026-11-16",      "status": "active"    }  ]}
 picks.json (written by the instructor)
 {  "schema_version": "1.0",  "updated_at": "2026-11-16",  "pin": ["vendor/model-a:free", "vendor/model-b:free"],  "prefer": ["vendor/model-c:free"],  "ban": ["vendor/model-d:free"],  "min_context_tokens": 131072,  "notes": "Model D fails tool calls in OpenCode."}
-Merge order (frugal): apply the student&apos;s bans and the instructor&apos;s bans, then the filters; keep only models allowed by the student&apos;s tier; place the student&apos;s pins first, then the instructor&apos;s pins in their listed order; sort the rest by tier, then availability, then usage rank, giving a small bonus to preferred models within their tier. In the budget tier, models with access set to budget from the student&apos;s enabled plan sort ahead of free models.
+Merge order (frugal): apply the student's bans and the instructor's bans, then the filters; keep only models allowed by the student's tier; place the student's pins first, then the instructor's pins in their listed order; sort the rest by tier, then availability, then usage rank, giving a small bonus to preferred models within their tier. In the budget tier, models with access set to budget from the student's enabled plan sort ahead of free models.
 Compatibility rule. New fields may be added without a version change; frugal ignores unknown fields. Removing or renaming a field requires a major version bump and a migration note in the repository.
 user.json (local file written by the frugal commands, never uploaded)
 {  "schema_version": "1.0",  "tier": "free",  "max_monthly_usd": 40,  "pin": ["vendor/model-a:free"],  "ban": ["vendor/model-d:free"],  "lock": null,  "local_mode": "fallback",  "enabled_providers": ["opencode-free", "openrouter", "groq"]}
 New field. Each results.json model entry gains access, with the value free or budget; frugal treats a missing value as free. Adding it needs no version bump under the compatibility rule above.
 Local reference entries. results.json gains an optional top-level local array, one entry per model, quantization and VRAM class. Values below are illustrative.
 {  "local": [    {      "vram_class_gb": 8,      "model": "vendor/model-name",      "quant": "Q4_K_M",      "file_gb": 6.0,      "context_tested": 16384,      "engine": "llama.cpp",      "score": 0.52,      "score_ci95": [0.43, 0.61],      "suites": { "code": 0.50, "tools": 0.58 },      "speed": { "gpu": "reference GPU name", "tokens_per_second": 28, "source": "measured" },      "last_full_run": "2026-11-16"    }  ]}
-The source field is measured for frugal-bench&apos;s own runs or community for reported numbers. frugal ignores the local array unless the student runs frugal local check.
+The source field is measured for frugal-bench's own runs or community for reported numbers. frugal ignores the local array unless the student runs frugal local check.
 ### 11. Milestones, risks and open questions
 Build frugal first with usage-based ranking, so students benefit early, then add frugal-bench behind the same interface.
 Milestones, in order, each gated by its exit check
-Spike (verify assumptions). Confirm 9Router&apos;s combo API, OpenCode&apos;s custom-provider config, the Pi extension and Msty&apos;s provider screen on all three operating systems. Exit: a hand-made combo works end to end in each tool.
+Spike (verify assumptions). Confirm 9Router's combo API, OpenCode's custom-provider config, the Pi extension and Msty's provider screen on all three operating systems. Exit: a hand-made combo works end to end in each tool.
 frugal v0.1. Install, setup, doctor, usage-ranked combo, OpenCode and Pi wiring. Exit: the acceptance criteria in section 6 pass on a clean machine.
 Classroom pilot. Five to ten students for two weeks, collecting doctor results and friction notes. Exit: at least 80% reach a working setup unaided.
-frugal v0.2. picks.json support, scheduled refresh, Msty guide, uninstall.
+frugal v0.2. picks.json support, scheduled refresh, Msty guide, uninstall, the observability commands (frugal watch and frugal mcp) as optional.
 frugal-bench v0.1. Code and Availability suites, screening round, results.json output. Exit: a full run completes inside the request budget.
 frugal-bench v0.2. Tools and Long-context suites, tiers with confidence intervals, monthly validation against an external leaderboard.
 Integration. frugal consumes results.json; compare student outcomes against usage-only ranking.
 Version 2 ideas. Headless agent-session benchmarks, more free providers, optional telemetry.
 Where the added scope lands
-Spike (step 1): also verify 9Router&apos;s cooldown and context handling, OpenCode Go&apos;s endpoint and key use, Copilot Student inside OpenCode, and compaction in OpenCode and Pi.
-v0.2 (step 4): tiers and the cap, prefer, ban and lock, cooldown and switch-back, the context guard, and the Copilot Student guide.
+Spike (step 1): also verify 9Router's cooldown and context handling, that a 400 context-overflow stays request-scoped, what /v1/models reports as a combo's context window, OpenCode Go's endpoint and key use, Copilot Student inside OpenCode, and compaction in OpenCode and Pi.
+v0.2 (step 4): tiers and the cap, prefer, ban and lock, cooldown reporting, harness compaction configuration and the declared combo context window, the Copilot Student guide, and optionally frugal watch and frugal mcp.
 Pilot (step 3): include a few students who qualify for Copilot Student, and record whether verification worked.
 frugal-bench v0.2 (step 6): optional paid-model coverage with the access field.
 Local reference scope
@@ -515,41 +525,49 @@ Set expectations, add several providers, recommend local models for overflow
 Added risks
 Paid plan terms, prices or tool restrictions change without notice. Mitigation: the approved list is instructor-maintained and re-checked each term.
 Students overspend. Mitigation: the cap, flat-fee plans only, and no per-token keys by default.
-A student&apos;s Copilot Student eligibility lapses at a monthly re-check. Mitigation: doctor reports the state and the free tier continues to work.
+A student's Copilot Student eligibility lapses at a monthly re-check. Mitigation: doctor reports the state and the free tier continues to work.
 A preferred model that the student pins performs badly or disappears. Mitigation: pins degrade gracefully and status explains what is happening.
+A silent model switch changes answer quality or tool-call reliability mid-session. Mitigation: combos are tier-ordered, and students are told that a late-session answer may come from a weaker model.
+A harness mis-detects the combo's context window, so compaction fires too late and a request overflows. Mitigation: keep the combo's minimum window high, declare the minimum window where the schema allows, and rely on the harness's one-shot overflow recovery.
+Free tiers are small enough that failover overhead consumes the next provider (each hop resends the full prompt). Mitigation: sticky sessions, large-context-first ordering, token saving, and proactive compaction; set expectations that failover stretches quota, it does not create it.
 Local reference risks
 Small local models frustrate students in long agent loops. Mitigation: the comparison shows scores honestly, and local stays the last resort by default.
 Local engine setup (drivers, Docker, WSL2) is hard for beginners. Mitigation: frugal links to engine instructions and does not install engines.
-Speed numbers from one reference GPU mislead students with other cards. Mitigation: the student&apos;s own frugal local check is the number to trust.
+Speed numbers from one reference GPU mislead students with other cards. Mitigation: the student's own frugal local check is the number to trust.
 Community-reported results are unevenly verified. Mitigation: they are labelled and kept out of scores.
 Unverified assumptions (check in the spike)
-9Router&apos;s exact combo endpoint and payload format.
-OpenCode&apos;s config file location and provider schema on each OS.
+9Router's exact combo endpoint and payload format.
+OpenCode's config file location and provider schema on each OS.
 That Msty has no importable config and accepts a custom OpenAI-compatible endpoint in its free version.
-OpenRouter&apos;s models API exposes the fields frugal filters on (pricing, modalities, supported parameters, context length).
-Whether OpenRouter&apos;s rankings data API can be used directly for the free-only usage ranking, or whether the models API is the better source.
+OpenRouter's models API exposes the fields frugal filters on (pricing, modalities, supported parameters, context length).
+Whether OpenRouter's rankings data API can be used directly for the free-only usage ranking, or whether the models API is the better source.
 That no common CLI already installs a frugal binary, and that frugalrouter is still unregistered on npm and GitHub.
 Added unverified assumptions
 Whether 9Router applies cooldowns and checks context size when it falls back between free providers.
-OpenCode Go&apos;s endpoint address, its exact limits, and whether its key may be used through a proxy; sources disagree on the first two.
+Whether 9Router classifies a 400 context-overflow as request-scoped (no failover), as its docs suggest.
+What 9Router /v1/models reports as a combo's context window: the minimum across members, or a default.
+Whether OpenCode's compaction buffer and keep settings take effect when the model is a combo name, and whether its provider model schema accepts an explicit context limit for frugal to write.
+Whether 9Router's /api usage endpoints are reachable with the dashboard session frugal sets at setup, which frugal watch and frugal mcp depend on.
+OpenCode Go's endpoint address, its exact limits, and whether its key may be used through a proxy; sources disagree on the first two.
 Whether Copilot Student works inside OpenCode, and whether Student-plan data is used for training.
 Whether OpenCode and Pi compact automatically and cope with a fallback model that has a smaller window.
-Whether 9Router&apos;s token saver keeps a stable prompt prefix and preserves provider cache markers.
-GitHub Education&apos;s eligibility rules (school type, age, country), read from GitHub&apos;s official pages.
+Whether 9Router's token saver keeps a stable prompt prefix and preserves provider cache markers.
+GitHub Education's eligibility rules (school type, age, country), read from GitHub's official pages.
 The terms of each candidate cheap plan (GLM, Kimi, Chutes, ClinePass) for use through a generic proxy.
 Local reference unverified assumptions
 The VRAM budgets (75% of VRAM at 8 and 12 GB, 65% at 6 GB) are estimates and need tuning against real runs.
-Kindi&apos;s claim that greedy output matches llama.cpp on the same model file, and where its community&apos;s verification results are published.
+Kindi's claim that greedy output matches llama.cpp on the same model file, and where its community's verification results are published.
 Whether small models at the 6 GB class can handle tool calling well enough to be useful in OpenCode or Pi.
-Whether Kindi&apos;s 65-task agent benchmark can be reused or adapted under its licence, or only used as a cross-check.
+Whether Kindi's 65-task agent benchmark can be reused or adapted under its licence, or only used as a cross-check.
 Whether one 9Router combo can mix a local OpenAI-compatible connection with cloud connections in a single fallback chain, which local_mode depends on.
 Open questions for the instructor
 Where will picks.json and results.json be hosted, and who maintains them?
 Are any students minors, and what do school policies require for third-party AI services?
-Should the instructor&apos;s account buy the $10 credit for benchmark runs?
+Should the instructor's account buy the $10 credit for benchmark runs?
 Decided: local models are in scope as a first-class provider, delivered in frugal v0.2.
 Added open questions
 Decided: the project is frugal (command frugal, npm package frugalrouter), with frugal-bench for the benchmark.
+Decided: frugal is a configurator, not a proxy (decision A). 9Router owns failover; the harness owns compaction. OpenCode is the recommended default harness; Pi (lightweight) and Msty (GUI, guided paste) are supported. frugal watch and frugal mcp are optional v0.2 features.
 Should the default cap be lower than the $40 ceiling, for example $20?
 Who pays for the budget tier: students, a sponsor or the school?
 Should the instructor hold a Go key so that frugal-bench can rank paid models?
