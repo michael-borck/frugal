@@ -12,6 +12,8 @@ Keep a notes file; record every endpoint, method, payload and observed behaviour
 
 ## 1. Control API: combos
 
+Confirmed from 9Router source: the real endpoints are `/api/combos` and `/api/combos/[id]` behind a dashboard session, not `/combos` with the API key. See section 12.
+
 frugal assumes:
 
 ```
@@ -105,6 +107,36 @@ From a real 9Router with OpenCode Free, OpenRouter, NVIDIA, Cloudflare, Kimchi, 
 - `:free` in an id is not a price or availability guarantee.
 - **Ollama Cloud is no longer a free option**; treat it as paid.
 - The only reliable signal was a live request. `frugal verify` now probes a spread of ids and records pass/fail/latency.
+
+## 12. Session API (confirmed from 9Router source, 2026-11-17)
+
+The control API is under `/api/*` and needs a dashboard session, not the `sk-` key. The cookie is `auth_token`.
+
+Login (the dashboard password; default is `123456` until changed):
+
+```sh
+curl -c /tmp/9r.cookies -X POST http://127.0.0.1:20128/api/auth/login \
+  -H 'content-type: application/json' -d '{"password":"<dashboard password>"}'
+curl -b /tmp/9r.cookies http://127.0.0.1:20128/api/auth/status
+```
+
+Then, with `-b /tmp/9r.cookies`:
+
+| Purpose | Request |
+| --- | --- |
+| List combos | `GET /api/combos` → `{ combos: [...] }` |
+| Create combo | `POST /api/combos` `{"name":"free-best","models":["..."],"kind":null}` |
+| Update combo | `PUT /api/combos/<id>` (changed fields; name regex `[A-Za-z0-9_.-]+`) |
+| Delete combo | `DELETE /api/combos/<id>` |
+| Refresh provider catalogs | `POST /api/models/catalog-sync` (status: `GET`) |
+| Test one model | `POST /api/models/test` `{"model":"..."}` |
+| API keys | `GET/POST /api/keys` |
+
+`/v1/*` (chat, models) still uses the `sk-` key. `/api/*` uses the session cookie. That split is why frugal cannot create combos with the API key alone.
+
+The `9router` CLI also has an interactive ASCII menu with **Providers**, **Combos**, **API Keys**, **Settings**, and **CLI tools** screens, so the same configuration can be done in the shell without curl.
+
+Implication: frugal can fully automate combo creation, catalog sync and provider listing if the user supplies the dashboard password once at setup (kept in memory, not stored). That is the next integration step.
 
 ## Exit check
 

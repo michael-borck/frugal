@@ -73,7 +73,7 @@ frugal verify --provider cf --limit 5
 frugal verify --limit 12 --out verified.json
 ```
 
-Probing spends a small amount of quota (one token per model), so the default is a limited spread, not the whole list. Writing the combo is still dashboard-manual: 9Router's `/api` needs a dashboard session, not the API key (recorded in `docs/SPIKE.md`).
+Probing spends a small amount of quota (one token per model), so the default is a limited spread, not the whole list. Writing the combo is dashboard-manual for now, but 9Router exposes a session API (`/api/combos`, `/api/models/catalog-sync`) — the next automation step (see `docs/SPIKE.md`).
 
 ## Development
 
