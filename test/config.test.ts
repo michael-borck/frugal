@@ -16,6 +16,7 @@ function pathsFor(dir: string): Paths {
     configDir: dir,
     userConfigPath: path.join(dir, "user.json"),
     statePath: path.join(dir, "state.json"),
+    secretsPath: path.join(dir, "secrets.json"),
     backupDir: path.join(dir, "backups"),
   };
 }

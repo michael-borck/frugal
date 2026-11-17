@@ -12,6 +12,7 @@ export interface Paths {
   configDir: string;
   userConfigPath: string;
   statePath: string;
+  secretsPath: string;
   backupDir: string;
 }
 
@@ -28,6 +29,7 @@ export function defaultPaths(): Paths {
     configDir: base,
     userConfigPath: path.join(base, "user.json"),
     statePath: path.join(base, "state.json"),
+    secretsPath: path.join(base, "secrets.json"),
     backupDir: path.join(base, "backups"),
   };
 }

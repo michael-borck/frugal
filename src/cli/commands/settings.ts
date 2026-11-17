@@ -1,6 +1,7 @@
 import { defaultPaths, loadUserConfig, saveUserConfig } from "../../core/config.js";
 import { DEFAULT_MAX_MONTHLY_USD, type LocalMode, type Tier } from "../../core/types.js";
 import { detectLocalServers, probeLocalServers } from "../../core/local.js";
+import { listProviderKeys } from "../../core/secrets.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
 export const tierCommand: Command = {
@@ -91,12 +92,20 @@ export const providersCommand: Command = {
   async run(ctx: CommandContext, _args: string[]) {
     const paths = defaultPaths();
     const user = await loadUserConfig(paths);
-    jsonOut(ctx, {
-      enabled: user.enabledProviders,
-      note: "Key validation is not wired yet (spike item).",
-    });
+    const keys = await listProviderKeys(paths);
+    const keyless = new Set(["opencode-free", "local", "github-copilot-student"]);
+    const providers = user.enabledProviders.map((provider) => ({
+      provider,
+      needsKey: !keyless.has(provider),
+      hasKey: keys.includes(provider),
+    }));
+    jsonOut(ctx, { enabled: user.enabledProviders, providers, keys });
     if (!ctx.json) {
       out(ctx, `Enabled providers: ${user.enabledProviders.join(", ") || "(none)"}`);
+      for (const { provider, needsKey, hasKey } of providers) {
+        const state = !needsKey ? "no key needed" : hasKey ? "key stored" : "no key — run frugal add";
+        out(ctx, `  ${provider}: ${state}`);
+      }
     }
     return 0;
   },
