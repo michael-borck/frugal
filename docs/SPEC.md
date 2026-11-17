@@ -13,7 +13,7 @@ No sharing of keys or accounts, and no creating extra accounts to evade limits.
 No paid routing by default: paid plans only in the opt-in budget tier, under the cap, and never Claude or ChatGPT subscriptions.
 No attempt to make free models match paid ones; the goal is the best available order.
 How the two projects relate
-They share one interface, two static files: the ranking file (results.json) from frugal-bench and the instructor's override file (picks.json), both read by frugal. frugal must work without frugal-bench by falling back to usage-based ranking from OpenRouter, so the projects can be built and shipped independently.
+Status change: frugal-bench is retired. In practice the free tier is dominated by availability, not decimal quality scores, and 9Router already advertises the connected models. frugal therefore ranks by the instructor's picks.json plus frugal verify and the reliability ledger. A hosted results.json, usage.json or catalog.json is still accepted if an instructor produces one later, but there is no default source and no dependency on frugal-bench.
 Naming. The project is frugal: students type the command frugal, the npm package is frugalrouter (the bare name is probably taken), and the benchmark is frugal-bench. It was renamed from the working names freerouter and then cheaprouter, because "free" overpromised once paid tiers were added and "cheap" read as low quality. The tier name free and the combo name free-best keep their names because they describe the free tier.
 Tiers. One setting, tier, decides which providers frugal may use.
 Tier
@@ -139,7 +139,7 @@ frugal start / frugal stop
 Start or stop the managed 9Router (start installs the pinned version locally on first use); start refreshes the combo if it is older than 24 hours
 Everyday
 frugal refresh
-Rebuild the combos now from the latest rankings and picks
+Explain how to refresh: run frugal verify to re-probe models, then update free-best in 9Router (Strategy: Fallback)
 Everyday
 frugal verify
 Probe the models 9Router advertises (a spread across providers, configurable limit) and report which actually answer, with a suggested combo order; records the results in the reliability ledger
@@ -166,7 +166,7 @@ frugal reliability
 Show observed success rate, recency-weighted score and latency per provider and model over a time window
 Providers
 frugal providers
-List enabled providers and whether each key works
+List the providers 9Router has connected, inferred from its model list
 Providers
 frugal add <provider> / frugal remove <provider>
 Power-user convenience: open or explain the matching 9Router provider screen. Keys and connections live in 9Router, not frugal.
@@ -197,7 +197,7 @@ Set a random dashboard password and API key, or confirm a config path that lets 
 Show the privacy notice. Provider keys are entered in 9Router, not frugal; frugal prints a short checklist of the recommended free providers and links to 9Router's dashboard. frugal never stores provider keys.
 Guide the student to connect the recommended free providers in 9Router (OpenCode Free, OpenRouter, Groq, and optionally Cloudflare or Kilo), then read 9Router's connected models rather than trusting a cached list. Detect any local model server (Ollama, llama.cpp or Kindi) and offer to add it.
 Ask for the tier and local_mode, then fetch rankings and picks, verify which advertised models actually answer, and build the free-best combo (plus budget-best on the budget tier). If 9Router's combo API is unavailable (it currently needs a dashboard session), print a paste-ready order for the combo editor instead of failing.
-Configure OpenCode and Pi, and show the Msty paste guide.
+Ask which harness to configure, defaulting to Pi (lightweight, for older laptops), then write it: a 9router provider in Pi models.json, or the router9 provider plus compaction in OpenCode. Show the Msty paste guide.
 Run doctor, and send one test message through the router if the combo can be applied programmatically.
 Router lifecycle. A RouterManager owns 9Router on every platform: detect, install (pinned, local), start (spawn detached with a pidfile and a logfile), stop, update (bump the pin with a frugal release, then smoke test) and uninstall. The same manager backs frugal start/stop and, later, the desktop app. The CLI is the canonical interface; the desktop app is an optional shell over the same core.
 First use requires Node. Removing that requirement is the desktop app's job (see section 11): it bundles a Node runtime and 9Router so a low-tech student double-clicks one installer.
@@ -364,14 +364,14 @@ Only local models are used, and no request leaves the student's machine
 The setting can be changed at any time, status shows the active mode, and doctor warns if first or only is set but no local server is running. Every local model counts as a normal combo member for the context guard, cooldown and prefer, ban and lock rules.
 ### 5. Project 1: tool integrations
 Every tool connects to the same local endpoint, http://localhost:20128/v1, with the API key frugal generated and the model name free-best. A skills folder is not used, because skills are agent instructions, not provider configuration.
-Harness priority. OpenCode is the recommended, default harness: it is fully open, configures cleanly from JSON, supports a custom OpenAI-compatible provider, has native automatic compaction with a configurable buffer, and supports MCP. Pi is supported as a very light-weight alternative via its community 9Router extension. Msty.ai is supported through a one-time guided paste because it has no importable config in its free version. frugal wires all three; the setup wizard defaults to OpenCode and offers the others.
+Harness priority. Pi is the recommended default: it is the lightest harness, which matters on older student laptops, and the unit's labs already use Pi with local Ollama and a shared Ollama server. frugal adds a 9router provider to Pi's ~/.pi/agent/models.json without touching existing providers, so a student keeps Ollama and the shared server and gains the free cloud combo. OpenCode is supported when the machine can handle it: a custom OpenAI-compatible provider, compaction and a declared context limit. Msty.ai is supported through a one-time guided paste. The setup wizard defaults to Pi and offers the others.
 Harness table. Tool, role, method, confidence.
-OpenCode (recommended, default)
-Write a custom OpenAI-compatible provider entry into OpenCode's JSON config, set free-best as the default model, back up the original file first, and write the compaction block (auto, buffer, keep.tokens) so compaction fires before the smallest combo member's window
+Pi (recommended, default)
+Add a 9router provider to ~/.pi/agent/models.json with baseUrl, api "openai-completions", the 9Router key, and models including free-best; preserve any existing ollama and ollama-shared providers, as the unit's setup-pi.mjs does
+Matches the labs already in use; confirm the file schema on the installed Pi version
+OpenCode (supported)
+Write a custom OpenAI-compatible provider entry (provider key router9) into OpenCode's JSON config, set router9/free-best as the default model, back up the original file first, and write the compaction block (auto, buffer, keep.tokens)
 Likely works; verify exact config schema, model context limit field and file path per OS
-Pi (supported, lightweight)
-Install the community 9Router extension, which auto-discovers models and combos and stores its settings in ~/.pi/agent/9router-config.json; write the URL and key there. Confirm whether Pi exposes a compaction setting for frugal to write
-Extension confirmed to exist; verify it is maintained and review its code
 Msty (free, supported via guided paste)
 No known file-based config. Print the three values to paste into Msty's remote OpenAI-compatible provider screen, copy the key to the clipboard, and show a numbered screenshot guide. Msty's own context handling is outside frugal's control
 Unverified; test the real Msty UI before writing the guide
@@ -413,8 +413,9 @@ Killing the top model's access (simulated 429) makes the next request succeed fr
 doctor reports green on a healthy setup and names the exact fix for each of the failures above.
 Uninstall restores every modified config byte-for-byte from its backup.
 With local_mode set to only, a network capture during a coding session shows no request leaving the student's machine.
-### 7. Project 2: frugal-bench, scope and principles
-frugal-bench is a scheduled job, run by the instructor on one account, that tests every currently free model, any approved paid-plan model it holds a key for, and the local reference set on a fixed suite and publishes a ranked results.json. Students never run its cloud suites, because free tiers are request-capped and a class-wide run would burn every student's daily quota; the only part students run is the small local subset inside frugal local check, which uses no cloud quota.
+### 7. Project 2: frugal-bench (parked)
+Status: parked. frugal no longer depends on frugal-bench. Free-tier viability is dominated by availability rather than decimal quality, 9Router already lists the connected models, and instructor picks plus frugal verify and the reliability ledger cover ordering. This section is kept as a design record if a data-driven ranking is ever wanted.
+frugal-bench was a scheduled job, run by the instructor on one account, that tests every currently free model, any approved paid-plan model it holds a key for, and the local reference set on a fixed suite and publishes a ranked results.json. Students never run its cloud suites, because free tiers are request-capped and a class-wide run would burn every student's daily quota; the only part students run is the small local subset inside frugal local check, which uses no cloud quota.
 Principles
 Automatic and repeatable. Every score comes from a pass/fail check or a measured number, never from a judge's opinion. The weights are fixed in a visible config file.
 Cheap first. A short screening round runs on every model; the full suite runs only on the top half, to fit free request limits.
@@ -500,7 +501,7 @@ Keep raw responses for 90 days so that surprising scores can be audited.
 Free endpoints may log prompts, so the benchmark must contain no private data, including in the private task set.
 ### 10. Interface contract: catalog.json, results.json, picks.json and user.json
 The hosted files (catalog.json, results.json and picks.json) are static JSON at stable HTTPS URLs (for example GitHub raw files or Pages). Each carries a schema_version; frugal ignores a file whose major version it does not recognize and keeps its last good copy.
-catalog.json (written by frugal-bench's catalog job). Provider/model metadata: per provider, id, label, fetched_at, error, and models with id, computed access (free or budget), price per 1M input and output tokens, context, tools, vision and any prompt-training flag. frugal uses it as the default candidate source, filtered to the student's enabled providers and tier, and falls back to a live OpenRouter fetch when it is unavailable. It spends no model tokens to build.
+catalog.json (optional; published by an instructor if wanted). Provider/model metadata. frugal no longer requires it: the candidate models are the ones 9Router has connected, verified by frugal verify. A catalog can add pricing/capability enrichment when present, but there is no default URL and no dependency on frugal-bench.
 results.json (written by frugal-bench, one entry per model)
 {  "schema_version": "1.0",  "generated_at": "2026-11-16T02:00:00Z",  "suite_version": "2026.11",  "models": [    {      "id": "vendor/model-name:free",      "provider": "openrouter",      "tier": "A",      "score": 0.71,      "score_ci95": [0.64, 0.78],      "suites": { "code": 0.68, "tools": 0.82, "availability": 0.9, "long_context": 0.6 },      "median_latency_ms": 2400,      "context_tokens": 262144,      "gates_passed": true,      "last_full_run": "2026-11-01",      "last_seen_free": "2026-11-16",      "status": "active"    }  ]}
 picks.json (written by the instructor)
@@ -520,9 +521,7 @@ Spike (verify assumptions). Confirm 9Router's combo API, OpenCode's custom-provi
 frugal v0.1. RouterManager (detect, optional local pinned install, start/stop), setup, doctor, usage-ranked combo, OpenCode and Pi wiring. Exit: the acceptance criteria in section 6 pass on a clean machine, and a fresh machine reaches a running router through frugal alone.
 Classroom pilot. Five to ten students for two weeks, collecting doctor results and friction notes. Exit: at least 80% reach a working setup unaided.
 frugal v0.2. picks.json support, scheduled refresh, Msty guide, uninstall, the observability commands (frugal watch and frugal mcp) as optional.
-frugal-bench v0.1. Code and Availability suites, screening round, results.json output. Exit: a full run completes inside the request budget.
-frugal-bench v0.2. Tools and Long-context suites, tiers with confidence intervals, monthly validation against an external leaderboard.
-Integration. frugal consumes results.json; compare student outcomes against usage-only ranking.
+frugal-bench: parked. Not on the critical path; revisit only if a data-driven ranking is wanted beyond instructor picks plus verify/reliability.
 frugal v0.3 (desktop app). An optional Tauri app for low-tech students that removes the Node prerequisite: it bundles a compiled frugal, a Node runtime and 9Router, reuses the RouterManager and the same core, runs the setup wizard and control panel as a GUI, and adds a tray icon and native notifications (watch). The CLI stays canonical and fully supported. Exit: a non-technical student installs, sets up and reaches a working OpenCode session without a terminal.
 Version 2 ideas. Headless agent-session benchmarks, more free providers, optional telemetry.
 Possible third project: frugal-ui (control panel). A small local UI for the configurator, not a chat app. It shows tier, configured combos, which model last served, quota (where 9Router exposes it), and doctor results, with buttons for refresh, doctor, and prefer/ban/lock. It makes the transparent behaviour visible without moving frugal into the request path. Ship it as a web page served locally by frugal ui (open in the browser) first; the Tauri desktop shell (frugal v0.3) adds the tray icon and native notifications and can bundle 9Router. Reuse the same status data as the CLI. Avoid Electron (heavy) and avoid a Python/Streamlit stack, which would split the codebase.

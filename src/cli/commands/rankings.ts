@@ -1,5 +1,4 @@
 import { defaultPaths, loadUserConfig, saveUserConfig, type Paths } from "../../core/config.js";
-import { DEFAULT_CATALOG_URL } from "../../core/catalog.js";
 import type { UserConfig } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
@@ -91,14 +90,13 @@ export async function runRankings(
   }
   if (changed) await saveUserConfig(paths, user);
 
-  const catalogUrl =
-    effective(user, "catalogUrl", process.env.FRUGAL_CATALOG_URL) ?? DEFAULT_CATALOG_URL;
+  const catalogUrl = effective(user, "catalogUrl", process.env.FRUGAL_CATALOG_URL);
   const report = {
     results_url: effective(user, "resultsUrl", process.env.FRUGAL_RESULTS_URL),
     picks_url: effective(user, "picksUrl", process.env.FRUGAL_PICKS_URL),
     usage_url: effective(user, "usageUrl", process.env.FRUGAL_USAGE_URL),
     catalog_url: catalogUrl,
-    catalog_overridden: user.catalogUrl != null || process.env.FRUGAL_CATALOG_URL != null,
+    catalog_overridden: catalogUrl != null,
     configured: effective(user, "resultsUrl", process.env.FRUGAL_RESULTS_URL) != null,
   };
 
@@ -107,10 +105,7 @@ export async function runRankings(
     out(ctx, `results.json: ${report.results_url ?? "(not configured)"}`);
     out(ctx, `picks.json:   ${report.picks_url ?? "(not configured)"}`);
     out(ctx, `usage rank:   ${report.usage_url ?? "(not configured)"}`);
-    out(
-      ctx,
-      `catalog.json: ${catalogUrl}${report.catalog_overridden ? "" : " (default)"}`,
-    );
+    out(ctx, `catalog.json: ${catalogUrl ?? "(not configured)"}`);
     if (!report.configured) {
       out(ctx, "");
       out(ctx, "Without a hosted results.json, quality ranking falls back to availability, reliability and usage.");

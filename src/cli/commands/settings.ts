@@ -2,7 +2,7 @@ import { defaultPaths, loadUserConfig, saveUserConfig } from "../../core/config.
 import { DEFAULT_MAX_MONTHLY_USD, type LocalMode, type Tier } from "../../core/types.js";
 import { detectLocalServers, probeLocalServers } from "../../core/local.js";
 import { makeObservation, recordObservation } from "../../core/reliability.js";
-import { listProviderKeys } from "../../core/secrets.js";
+import { listRouterModels, providerPrefix } from "../../core/verify.js";
 import { providerInfo } from "../../core/providers.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
@@ -100,29 +100,44 @@ export const localCommand: Command = {
 
 export const providersCommand: Command = {
   name: "providers",
-  summary: "List enabled providers and whether each key works.",
+  summary: "List the providers 9Router has connected (from its model list).",
   group: "Providers",
   async run(ctx: CommandContext, _args: string[]) {
-    const paths = defaultPaths();
-    const user = await loadUserConfig(paths);
-    const keys = await listProviderKeys(paths);
-    const providers = user.enabledProviders.map((provider) => {
-      const info = providerInfo(provider);
-      return {
-        provider,
-        needsKey: info ? info.auth === "key" : true,
-        hasKey: keys.includes(provider),
-      };
-    });
-    jsonOut(ctx, { enabled: user.enabledProviders, providers, keys });
-    if (!ctx.json) {
-      out(ctx, `Enabled providers: ${user.enabledProviders.join(", ") || "(none)"}`);
-      for (const { provider, needsKey, hasKey } of providers) {
-        const state = !needsKey ? "no key needed" : hasKey ? "key stored" : "no key — run frugal add";
-        out(ctx, `  ${provider}: ${state}`);
-      }
+    const key = (process.env.FRUGAL_ROUTER_KEY ?? "").trim();
+    if (!key) {
+      const note = "Set FRUGAL_ROUTER_KEY (9Router's API key) to list connected providers.";
+      jsonOut(ctx, { models: 0, providers: [], note });
+      if (!ctx.json) out(ctx, note);
+      return 0;
     }
-    return 0;
+    try {
+      const ids = await listRouterModels({ apiKey: key });
+      const counts = new Map<string, number>();
+      for (const id of ids) {
+        if (!id.includes("/")) continue;
+        const prefix = providerPrefix(id);
+        counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+      }
+      const providers = [...counts.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([id, models]) => ({ id, label: providerInfo(id)?.label ?? id, models }));
+      jsonOut(ctx, { models: ids.length, providers });
+      if (!ctx.json) {
+        out(ctx, `9Router advertises ${ids.length} models.`);
+        for (const provider of providers) {
+          out(ctx, `  ${provider.id} (${provider.label}): ${provider.models} models`);
+        }
+        if (providers.length === 0) {
+          out(ctx, "No provider models found. Connect providers in 9Router → Providers.");
+        }
+      }
+      return 0;
+    } catch (error) {
+      const note = `Could not read 9Router models: ${(error as Error).message}`;
+      jsonOut(ctx, { models: 0, providers: [], note });
+      if (!ctx.json) out(ctx, note);
+      return 1;
+    }
   },
 };
 

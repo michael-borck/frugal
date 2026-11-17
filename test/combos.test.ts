@@ -137,8 +137,8 @@ describe("openCode integration", () => {
     const result = await writeOpenCodeConfig({ model: "free-best", configPath });
     expect(result.changed).toBe(true);
     const config = await readOpenCodeConfig(configPath);
-    expect(config?.provider?.frugal).toBeTruthy();
-    expect(config?.model).toBe("frugal/free-best");
+    expect(config?.provider?.router9).toBeTruthy();
+    expect(config?.model).toBe("router9/free-best");
   });
 
   it("backs up the original once and preserves existing providers", async () => {
@@ -149,12 +149,12 @@ describe("openCode integration", () => {
     await writeOpenCodeConfig({ configPath });
     const config = await readOpenCodeConfig(configPath);
     expect(config?.provider?.anthropic).toBeTruthy();
-    expect(config?.provider?.frugal).toBeTruthy();
+    expect(config?.provider?.router9).toBeTruthy();
     // second run should not overwrite the first backup
     await writeOpenCodeConfig({ configPath });
     const backup = await fs.readFile(`${configPath}.frugal-backup`, "utf8");
     expect(backup).toContain("anthropic");
-    expect(backup).not.toContain("frugal");
+    expect(backup).not.toContain("router9");
   });
 
   it("writes auto-compaction defaults and a declared context limit", async () => {
@@ -166,7 +166,7 @@ describe("openCode integration", () => {
     const config = await readOpenCodeConfig(configPath);
     expect(config?.compaction?.auto).toBe(true);
     expect(config?.compaction?.buffer).toBe("20%");
-    const modelEntry = (config?.provider?.frugal as { models: Record<string, unknown> }).models[
+    const modelEntry = (config?.provider?.router9 as { models: Record<string, unknown> }).models[
       "free-best"
     ] as { limit?: { context: number; output: number } };
     expect(modelEntry.limit?.context).toBe(131_072);
@@ -186,15 +186,35 @@ describe("openCode integration", () => {
 });
 
 describe("pi integration", () => {
-  it("writes the 9Router extension settings", async () => {
+  it("adds a 9router provider and preserves existing Pi providers", async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-pi-"));
-    const configPath = path.join(tmp, "9router-config.json");
+    const configPath = path.join(tmp, "models.json");
     try {
-      const result = await writePiConfig({ model: "free-best", configPath });
+      await fs.writeFile(
+        configPath,
+        JSON.stringify({
+          providers: {
+            ollama: { baseUrl: "http://localhost:11434/v1", models: [{ id: "qwen3:8b" }] },
+            "ollama-shared": { baseUrl: "https://ollama.example/v1", models: [{ id: "granite4.2:3b" }] },
+          },
+        }),
+      );
+
+      const result = await writePiConfig({
+        apiKey: "sk-router",
+        model: "free-best",
+        models: ["cf/a"],
+        configPath,
+      });
       expect(result.changed).toBe(true);
+
       const written = JSON.parse(await fs.readFile(configPath, "utf8"));
-      expect(written.url).toContain("/v1");
-      expect(written.models).toContain("free-best");
+      expect(written.providers.ollama).toBeTruthy();
+      expect(written.providers["ollama-shared"]).toBeTruthy();
+      expect(written.providers["9router"].apiKey).toBe("sk-router");
+      expect(written.providers["9router"].api).toBe("openai-completions");
+      const ids = written.providers["9router"].models.map((m: { id: string }) => m.id);
+      expect(ids).toEqual(["free-best", "cf/a"]);
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }

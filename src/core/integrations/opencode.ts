@@ -66,14 +66,14 @@ export interface OpenCodeOptions {
 export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promise<IntegrationResult> {
   const configPath = options.configPath ?? openCodeConfigPath();
   const baseUrl = options.baseUrl ?? `http://${ROUTER_HOST}:${ROUTER_PORT}/v1`;
-  const apiKey = options.apiKey ?? "frugal-local";
+  const apiKey = options.apiKey ?? "";
   const model = options.model ?? "free-best";
 
   const existing = (await readJson<OpenCodeConfig>(configPath)) ?? {};
   const provider = { ...(existing.provider ?? {}) };
   const previousFrugal =
-    provider.frugal && typeof provider.frugal === "object"
-      ? (provider.frugal as Record<string, unknown>)
+    provider.router9 && typeof provider.router9 === "object"
+      ? (provider.router9 as Record<string, unknown>)
       : {};
   const previousModels =
     previousFrugal.models && typeof previousFrugal.models === "object"
@@ -91,10 +91,10 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
     modelEntry.limit = { context: options.contextLimit, output };
   }
 
-  const frugalProvider = {
+  const routerProvider = {
     ...previousFrugal,
     npm: "@ai-sdk/openai-compatible",
-    name: "frugal (local 9Router)",
+    name: "Router9 (local)",
     options: {
       baseURL: baseUrl,
       apiKey,
@@ -111,8 +111,8 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
 
   const next: OpenCodeConfig = {
     ...existing,
-    provider: { ...provider, frugal: frugalProvider },
-    model: `frugal/${model}`,
+    provider: { ...provider, router9: routerProvider },
+    model: `router9/${model}`,
     compaction,
   };
 
@@ -129,14 +129,14 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
     changed: true,
     backedUp,
     configPath,
-    detail: `Wrote provider "frugal" (base ${baseUrl}), default model ${model}${limitText}; ${compactionText}.`,
+    detail: `Wrote provider "router9" (base ${baseUrl}), default model ${model}${limitText}; ${compactionText}.`,
   };
 }
 
 export async function openCodeConfigured(configPath = openCodeConfigPath()): Promise<boolean> {
   try {
     const config = await readJson<OpenCodeConfig>(configPath);
-    return config != null && config.provider != null && "frugal" in config.provider;
+    return config != null && config.provider != null && "router9" in config.provider;
   } catch {
     return false;
   }

@@ -1,50 +1,46 @@
-import {
-  configExists,
-  defaultPaths,
-  loadState,
-  loadUserConfig,
-  saveState,
-  saveUserConfig,
-  type Paths,
-} from "../../core/config.js";
-import { HttpRouterClient, type RouterClient } from "../../core/routerClient.js";
-import { HttpRankingSource, type RankingSource } from "../../core/rankingSource.js";
+import { defaultPaths, type Paths } from "../../core/config.js";
 import { RouterManager, type RouterLifecycle } from "../../core/routerManager.js";
-import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
-import { loadReliability, reliabilityMap } from "../../core/reliability.js";
-import { DEFAULT_CATALOG_URL } from "../../core/catalog.js";
-import { recommendedContextLimit } from "../../core/combos.js";
-import { applyIntegrations, type ApplyOptions } from "../../core/integrations/index.js";
-import type { IntegrationResult } from "../../core/integrations/base.js";
 import { detectLocalServers, type LocalProbe } from "../../core/local.js";
-import { validateProviderKey } from "../../core/validateKey.js";
-import { setProviderKey } from "../../core/secrets.js";
 import {
-  DEFAULT_MAX_MONTHLY_USD,
-  ROUTER_HOST,
-  ROUTER_PORT,
-  type LocalMode,
-  type ProviderId,
-  type Tier,
-  type UserConfig,
-} from "../../core/types.js";
+  listRouterModels,
+  providerPrefix,
+  selectCandidates,
+  suggestedCombo,
+  verifyModels,
+  type ProbeResult,
+} from "../../core/verify.js";
+import { makeObservation, recordObservation } from "../../core/reliability.js";
+import { writePiConfig, PI_PROVIDER_ID } from "../../core/integrations/pi.js";
+import { writeOpenCodeConfig } from "../../core/integrations/opencode.js";
+import { mstyGuide } from "../../core/integrations/msty.js";
+import type { IntegrationResult } from "../../core/integrations/base.js";
+import { providerInfo } from "../../core/providers.js";
+import { ROUTER_HOST, ROUTER_PORT, type ProviderId } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
-const DEFAULT_RESULTS_URL = process.env.FRUGAL_RESULTS_URL;
-const DEFAULT_PICKS_URL = process.env.FRUGAL_PICKS_URL;
-const DEFAULT_USAGE_URL = process.env.FRUGAL_USAGE_URL;
+const PROBE_LIMIT = 10;
+
+const GUIDE: Array<{ id: ProviderId; note: string }> = [
+  { id: "opencode-free", note: "no key needed; connect it first" },
+  { id: "openrouter", note: "sign up at openrouter.ai, paste the key in 9Router" },
+  { id: "groq", note: "sign up at console.groq.com, paste the key in 9Router" },
+  { id: "cloudflare-workers-ai", note: "free daily allowance; needs account id + token" },
+  { id: "kilo", note: "free gateway; paste the key in 9Router" },
+  { id: "requesty", note: "free models; paste the key in 9Router" },
+  { id: "local", note: "if Ollama is running, connect http://127.0.0.1:11434/v1 (no key)" },
+];
 
 export interface SetupDeps {
   prompter: Prompter;
   paths?: Paths;
   fetchImpl?: typeof fetch;
-  router?: RouterClient;
-  source?: RankingSource;
-  applyFiles?: (options: ApplyOptions) => Promise<IntegrationResult[]>;
-  detectLocal?: (fetchImpl?: typeof fetch) => Promise<LocalProbe[]>;
-  /** When present, setup may install and start 9Router if it is not running. */
   routerManager?: RouterLifecycle;
+  detectLocal?: (fetchImpl?: typeof fetch) => Promise<LocalProbe[]>;
+}
+
+function routerBase(): string {
+  return `http://${ROUTER_HOST}:${ROUTER_PORT}`;
 }
 
 export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<number> {
@@ -52,14 +48,9 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   const prompter = deps.prompter;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const detectLocal = deps.detectLocal ?? ((f) => detectLocalServers(f));
-  const applyFiles = deps.applyFiles ?? applyIntegrations;
-
   const say = (message: string): void => {
     if (!ctx.json) prompter.info(message);
   };
-
-  const user = await loadUserConfig(paths);
-  const existed = await configExists(paths);
 
   if (Number(process.versions.node.split(".")[0]) < 22) {
     say("Node 22 or newer is required. Install it from https://nodejs.org, then re-run frugal setup.");
@@ -68,194 +59,159 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
 
   say("frugal setup");
   say("");
-  if (existed) say("Existing configuration found; it will be kept and extended (setup is safe to re-run).");
   say(
     "Privacy: free endpoints often log prompts and may use them for training. Do not paste credentials, personal data or private school material.",
   );
   say("");
 
-  const tier = await prompter.select<Tier>(
-    "Which tier do you want?",
-    [
-      { label: "free — free providers only ($0)", value: "free" },
-      { label: "budget — free plus one paid plan under a cap", value: "budget" },
-    ],
-    user.tier,
-  );
-
-  let maxMonthlyUsd = user.maxMonthlyUsd;
-  if (tier === "budget") {
-    const raw = await prompter.text(`Monthly cap in USD (ceiling ${DEFAULT_MAX_MONTHLY_USD})`, {
-      default: String(user.maxMonthlyUsd),
-      validate: (value) => {
-        const parsed = Number(value);
-        if (!Number.isFinite(parsed) || parsed < 0) return "Enter a number.";
-        if (parsed > DEFAULT_MAX_MONTHLY_USD) return `The instructor's ceiling is $${DEFAULT_MAX_MONTHLY_USD}.`;
-        return null;
-      },
-    });
-    maxMonthlyUsd = Number(raw);
-  }
-
-  const local = await detectLocal(fetchImpl);
-  let localMode: LocalMode = user.localMode;
-  if (local.length > 0) {
-    say(`Local model server detected: ${local.map((probe) => probe.engine).join(", ")}.`);
-    localMode = await prompter.select<LocalMode>(
-      "How should local models combine with cloud?",
-      [
-        { label: "fallback — cloud first, local last (recommended)", value: "fallback" },
-        { label: "first — local primary, cloud overflow", value: "first" },
-        { label: "only — never leave this machine", value: "only" },
-      ],
-      user.localMode,
-    );
-  } else {
-    say("No local model server detected (optional; install Ollama or llama.cpp to add one later).");
-    localMode = "fallback";
-  }
-
-  const enabled = new Set<ProviderId>(user.enabledProviders);
-  enabled.add("opencode-free");
-  if (local.length > 0) enabled.add("local");
-
-  const openrouterKey = (await prompter.secret("OpenRouter API key (Enter to skip):")).trim();
-  if (openrouterKey) {
-    const result = await validateProviderKey("openrouter", openrouterKey, fetchImpl);
-    if (result.ok) {
-      await setProviderKey(paths, "openrouter", openrouterKey);
-      enabled.add("openrouter");
-      say("OpenRouter key accepted.");
+  if (deps.routerManager) {
+    if (await deps.routerManager.isRunning()) {
+      say(`9Router is running at ${routerBase()}.`);
     } else {
-      say(`${result.detail}. Add it later with: frugal add openrouter`);
-    }
-  } else {
-    say("Skipped OpenRouter. Add it later with: frugal add openrouter");
-  }
-
-  const groqKey = (await prompter.secret("Groq API key (optional, Enter to skip):")).trim();
-  if (groqKey) {
-    const result = await validateProviderKey("groq", groqKey, fetchImpl);
-    if (result.ok) {
-      await setProviderKey(paths, "groq", groqKey);
-      enabled.add("groq");
-      say("Groq key accepted.");
-    } else {
-      say(`${result.detail}. Add it later with: frugal add groq`);
-    }
-  }
-
-  const nextUser: UserConfig = {
-    ...user,
-    tier,
-    maxMonthlyUsd,
-    localMode,
-    enabledProviders: [...enabled],
-  };
-  await saveUserConfig(paths, nextUser);
-
-  const rankingsConfigured = Boolean(nextUser.resultsUrl ?? DEFAULT_RESULTS_URL);
-  if (!rankingsConfigured) {
-    say("No hosted ranking files configured yet; ranking falls back to usage and name order.");
-    say("Set them with: frugal rankings --results <url> --picks <url> --usage <url>");
-  }
-
-  const router = deps.router ?? new HttpRouterClient();
-  let routerUp = await router.health();
-
-  if (!routerUp && deps.routerManager) {
-    const wants = await prompter.confirm(
-      "9Router is not running. Install and start the pinned version now?",
-      true,
-    );
-    if (wants) {
-      say("Installing and starting 9Router (pinned). This can take a minute...");
-      const start = await deps.routerManager.start();
-      routerUp = await router.health();
-      say(start.detail);
-      if (!routerUp) {
-        say("9Router is still not reachable. Check the router log, then run frugal start.");
+      const install = await prompter.confirm(
+        "9Router is not running. Install and start the pinned version now?",
+        true,
+      );
+      if (install) {
+        say("Installing and starting 9Router (pinned). This can take a minute...");
+        const started = await deps.routerManager.start();
+        say(started.detail);
+      } else {
+        say("Start 9Router yourself, then re-run frugal setup.");
+        return 1;
       }
     }
   }
 
-  say(
-    `9Router: ${
-      routerUp
-        ? `reachable at ${ROUTER_HOST}:${ROUTER_PORT}`
-        : "not running yet; run frugal start, then frugal refresh"
-    }`,
+  say("Connect free providers in 9Router (keys are stored in 9Router, not frugal):");
+  for (const entry of GUIDE) {
+    const label = providerInfo(entry.id)?.label ?? entry.id;
+    say(`  - ${label}: ${entry.note}`);
+  }
+  say(`  Dashboard: ${routerBase()}/dashboard → Providers`);
+  const local = await detectLocal(fetchImpl);
+  if (local.length > 0) {
+    say(`  Local server detected: ${local.map((probe) => probe.engine).join(", ")}.`);
+  }
+  await prompter.confirm("Have you connected at least one provider? (You can add more later)", true);
+  say("");
+
+  let key = (process.env.FRUGAL_ROUTER_KEY ?? "").trim();
+  if (!key) {
+    key = (await prompter.secret("9Router API key (from the dashboard):")).trim();
+  }
+  if (!key) {
+    say("No 9Router API key. Re-run with FRUGAL_ROUTER_KEY set, or paste it when asked.");
+    return 1;
+  }
+
+  let ids: string[];
+  try {
+    ids = await listRouterModels({ apiKey: key, fetchImpl });
+  } catch (error) {
+    say(`Could not read models from 9Router: ${(error as Error).message}`);
+    return 1;
+  }
+  const prefixes = [
+    ...new Set(ids.filter((id) => id.includes("/")).map((id) => providerPrefix(id))),
+  ].sort();
+  say(`9Router advertises ${ids.length} models across: ${prefixes.join(", ") || "(none)"}.`);
+
+  const shouldVerify = await prompter.confirm(
+    `Verify a spread of models now? (up to ${PROBE_LIMIT} tiny requests)`,
+    !ctx.json && Boolean(process.stdin.isTTY),
   );
-
-  let contextLimit: number | undefined;
-  let comboSummary: Array<{ name: string; entries: number }> = [];
-
-  if (routerUp) {
-    const source =
-      deps.source ??
-      new HttpRankingSource({
-        resultsUrl: nextUser.resultsUrl ?? DEFAULT_RESULTS_URL,
-        picksUrl: nextUser.picksUrl ?? DEFAULT_PICKS_URL,
-        usageUrl: nextUser.usageUrl ?? DEFAULT_USAGE_URL,
-        catalogUrl: nextUser.catalogUrl ?? process.env.FRUGAL_CATALOG_URL ?? DEFAULT_CATALOG_URL,
-      });
-    const composed = await composeAndRegister(
-      nextUser,
-      source,
-      router,
-      reliabilityMap(await loadReliability(paths)),
-    );
-    if (composed.registered) {
-      const state = await loadState(paths);
-      await saveState(paths, stateFromCombos(state, composed.combos, []));
-      comboSummary = composed.combos.map((combo) => ({
-        name: combo.name,
-        entries: combo.entries.length,
-      }));
-      for (const combo of comboSummary) say(`Combo ${combo.name}: ${combo.entries} models`);
-      const free = composed.combos.find((c) => c.name === "free-best") ?? composed.combos[0];
-      if (free) contextLimit = recommendedContextLimit(free);
-    } else {
-      say(
-        `Could not build combos: ${composed.registrationError ?? "unknown error"}. Keeping the last good combo.`,
+  let results: ProbeResult[] = [];
+  if (shouldVerify) {
+    const candidates = selectCandidates(ids, PROBE_LIMIT);
+    say(`Probing ${candidates.length} models...`);
+    results = await verifyModels(candidates, { apiKey: key, fetchImpl });
+    for (const result of results) {
+      await recordObservation(
+        paths,
+        makeObservation({
+          provider: providerPrefix(result.id),
+          model: result.id,
+          kind: "probe",
+          ok: result.ok,
+          status: result.status ?? undefined,
+          latencyMs: result.latencyMs ?? undefined,
+          error: result.error ?? undefined,
+        }),
       );
     }
+    const ok = results.filter((result) => result.ok).length;
+    say(`${ok} answered, ${results.length - ok} failed.`);
+  }
+  const combo = suggestedCombo(results, 10);
+
+  const harness = await prompter.select<"pi" | "opencode" | "both" | "msty">(
+    "Which harness should frugal configure?",
+    [
+      { label: "Pi (recommended for older laptops)", value: "pi" },
+      { label: "OpenCode", value: "opencode" },
+      { label: "Both", value: "both" },
+      { label: "Msty guide only", value: "msty" },
+    ],
+    "pi",
+  );
+
+  const applied: IntegrationResult[] = [];
+  const baseUrl = `${routerBase()}/v1`;
+  if (harness === "pi" || harness === "both") {
+    applied.push(
+      await writePiConfig({ baseUrl, apiKey: key, model: "free-best", models: combo }),
+    );
+  }
+  if (harness === "opencode" || harness === "both") {
+    applied.push(await writeOpenCodeConfig({ baseUrl, apiKey: key, model: "free-best" }));
+  }
+
+  if (combo.length > 0) {
+    say("");
+    say("Suggested free-best order (9Router → Combos → free-best, Strategy: Fallback):");
+    combo.forEach((id, index) => say(`  ${index + 1}. ${id}`));
+    say("9Router's combo API needs a dashboard session, so frugal prints the order instead of applying it.");
   } else {
-    const state = await loadState(paths);
-    if (state.lastGoodCombo) contextLimit = recommendedContextLimit(state.lastGoodCombo);
+    say("No models verified yet. Connect providers, then run frugal verify to build the order.");
   }
-
-  const applied = await applyFiles({ apiKey: "frugal-local", model: "free-best", contextLimit });
-  if (contextLimit != null) {
-    say(`Declaring a ${contextLimit}-token context window for free-best so compaction fires early enough.`);
-  }
-  for (const result of applied) {
-    say(`[${result.changed ? "wired" : "guide"}] ${result.name}: ${result.detail}`);
-  }
-
-  jsonOut(ctx, {
-    tier,
-    max_monthly_usd: maxMonthlyUsd,
-    local_mode: localMode,
-    enabled_providers: [...enabled],
-    router: routerUp ? "reachable" : "unreachable",
-    combos: comboSummary,
-    context_limit: contextLimit ?? null,
-    integrations: applied.map((result) => ({
-      name: result.name,
-      changed: result.changed,
-      detail: result.detail,
-    })),
-  });
 
   say("");
-  say("Next: run frugal doctor to confirm everything works.");
+  for (const entry of applied) say(`[wired] ${entry.name}: ${entry.detail}`);
+  const msty = mstyGuide({ baseUrl, apiKey: key, model: "free-best" });
+  if (harness === "msty" || harness === "both") {
+    say("");
+    say("Msty: paste these into Settings → Remote Providers (OpenAI-compatible):");
+    for (const step of msty.steps) say(`  ${step}`);
+  } else {
+    say(`Msty (optional): base ${msty.baseUrl}, model ${msty.model}, key from the 9Router dashboard.`);
+  }
+
+  say("");
+  if (harness === "pi" || harness === "both") {
+    say(`Restart Pi, then: pi --provider ${PI_PROVIDER_ID} --model free-best`);
+    say("Your existing Ollama and shared-server providers are left untouched.");
+  }
+  if (harness === "opencode" || harness === "both") {
+    say("Restart OpenCode and choose Router9 (local) → free-best.");
+  }
+  say("Next: frugal verify to refresh, or frugal status.");
+
+  jsonOut(ctx, {
+    router: routerBase(),
+    providers: prefixes,
+    models: ids.length,
+    verified: results.filter((result) => result.ok).map((result) => result.id),
+    suggested_combo: combo,
+    harness,
+    integrations: applied.map((entry) => ({ name: entry.name, detail: entry.detail })),
+  });
   return 0;
 }
 
 export const setupCommand: Command = {
   name: "setup",
-  summary: "First-time wizard: tier, providers, local model, combos and tool wiring. Safe to re-run.",
+  summary: "Opinionated 9Router setup: connect providers, verify models, wire a harness.",
   group: "Everyday",
   async run(ctx: CommandContext, _args: string[]) {
     const nonInteractive = ctx.json || !process.stdin.isTTY;

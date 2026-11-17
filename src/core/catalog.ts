@@ -1,10 +1,6 @@
 import { isProviderId } from "./providers.js";
 import { SCHEMA_VERSION, type ModelCandidate } from "./types.js";
 
-/** The instructor's published catalog, used as the default candidate source. */
-export const DEFAULT_CATALOG_URL =
-  "https://raw.githubusercontent.com/michael-borck/frugal-bench/main/catalog.json";
-
 /**
  * Turn a catalog.json published by frugal-bench into candidates.
  *

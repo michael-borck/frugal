@@ -6,26 +6,20 @@ import { runSetup } from "../src/cli/commands/setup.js";
 import type { Prompter, SelectChoice } from "../src/cli/prompt.js";
 import type { CommandContext } from "../src/cli/command.js";
 import type { Paths } from "../src/core/config.js";
-import { loadUserConfig } from "../src/core/config.js";
-import { hasProviderKey } from "../src/core/secrets.js";
-import type { RouterClient, RouterCombo } from "../src/core/routerClient.js";
-import type { ApplyOptions } from "../src/core/integrations/index.js";
-import type { IntegrationResult } from "../src/core/integrations/base.js";
 
 class ScriptedPrompter implements Prompter {
   infos: string[] = [];
   constructor(
     private readonly answers: {
+      confirms?: boolean[];
+      secrets?: string[];
       selects?: string[];
       texts?: string[];
-      secrets?: string[];
-      confirms?: boolean[];
     } = {},
   ) {}
 
   text(_question: string, options?: { default?: string }): Promise<string> {
-    const next = this.answers.texts?.shift();
-    return Promise.resolve(next ?? options?.default ?? "");
+    return Promise.resolve(this.answers.texts?.shift() ?? options?.default ?? "");
   }
   secret(): Promise<string> {
     return Promise.resolve(this.answers.secrets?.shift() ?? "");
@@ -38,8 +32,7 @@ class ScriptedPrompter implements Prompter {
     choices: SelectChoice<T>[],
     defaultValue?: T,
   ): Promise<T> {
-    const next = this.answers.selects?.shift();
-    return Promise.resolve((next ?? defaultValue ?? choices[0]!.value) as T);
+    return Promise.resolve((this.answers.selects?.shift() ?? defaultValue ?? choices[0]!.value) as T);
   }
   info(message: string): void {
     this.infos.push(message);
@@ -47,189 +40,128 @@ class ScriptedPrompter implements Prompter {
   close(): void {}
 }
 
-class DownRouter implements RouterClient {
-  async health(): Promise<boolean> {
-    return false;
-  }
-  async listCombos(): Promise<RouterCombo[]> {
-    return [];
-  }
-  async upsertCombo(): Promise<void> {}
-  async deleteCombo(): Promise<void> {}
-}
-
-function okFetch(): typeof fetch {
-  return (async () => ({ ok: true, status: 200 }) as Response) as typeof fetch;
-}
-
-function rejectingFetch(): typeof fetch {
-  return (async () => ({ ok: false, status: 401 }) as Response) as typeof fetch;
-}
-
 function pathsFor(dir: string): Paths {
   return {
-    configDir: dir,
-    userConfigPath: path.join(dir, "user.json"),
-    statePath: path.join(dir, "state.json"),
-    secretsPath: path.join(dir, "secrets.json"),
-    backupDir: path.join(dir, "backups"),
+    configDir: path.join(dir, "frugal"),
+    userConfigPath: path.join(dir, "frugal", "user.json"),
+    statePath: path.join(dir, "frugal", "state.json"),
+    secretsPath: path.join(dir, "frugal", "secrets.json"),
+    backupDir: path.join(dir, "frugal", "backups"),
   };
 }
 
-describe("runSetup wizard", () => {
+function routerJson(status: number, payload: unknown): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+    text: async () => JSON.stringify(payload),
+  } as Response;
+}
+
+function fakeRouter(): typeof fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/v1/models")) {
+      return routerJson(200, { data: [{ id: "cf/a" }, { id: "cf/b" }, { id: "free-best" }] });
+    }
+    if (url.endsWith("/v1/chat/completions")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { model?: string };
+      return body.model === "cf/a" ? routerJson(200, {}) : routerJson(404, { error: "nope" });
+    }
+    return routerJson(404, {});
+  }) as typeof fetch;
+}
+
+describe("runSetup (thin)", () => {
   let dir: string;
-  let paths: Paths;
+  let home: string;
   let ctx: CommandContext;
-  let applied: ApplyOptions[];
+  let originalHome: string | undefined;
+  let originalKey: string | undefined;
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-setup-"));
-    paths = pathsFor(dir);
-    ctx = { paths, json: false };
-    applied = [];
+    home = path.join(dir, "home");
+    await fs.mkdir(path.join(home, ".pi", "agent"), { recursive: true });
+    originalHome = process.env.HOME;
+    originalKey = process.env.FRUGAL_ROUTER_KEY;
+    process.env.HOME = home;
+    delete process.env.FRUGAL_ROUTER_KEY;
+    ctx = { paths: pathsFor(dir), json: false };
   });
 
   afterEach(async () => {
+    process.env.HOME = originalHome;
+    if (originalKey != null) process.env.FRUGAL_ROUTER_KEY = originalKey;
     await fs.rm(dir, { recursive: true, force: true });
   });
 
-  const applyFiles = async (options: ApplyOptions): Promise<IntegrationResult[]> => {
-    applied.push(options);
-    return [];
-  };
+  it("writes a Pi 9router provider and preserves existing providers", async () => {
+    const modelsPath = path.join(home, ".pi", "agent", "models.json");
+    await fs.writeFile(
+      modelsPath,
+      JSON.stringify({
+        providers: {
+          ollama: { baseUrl: "http://localhost:11434/v1", models: [{ id: "qwen3:8b" }] },
+        },
+      }),
+    );
 
-  it("collects tier, cap and validated keys, and persists them", async () => {
     const prompter = new ScriptedPrompter({
-      selects: ["budget"],
-      texts: ["20"],
-      secrets: ["sk-or-valid", "gsk-valid"],
+      confirms: [true, true],
+      secrets: ["sk-router"],
+      selects: ["pi"],
     });
-
     const code = await runSetup(ctx, {
       prompter,
-      paths,
-      fetchImpl: okFetch(),
-      router: new DownRouter(),
-      applyFiles,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
       detectLocal: async () => [],
     });
 
     expect(code).toBe(0);
-    const user = await loadUserConfig(paths);
-    expect(user.tier).toBe("budget");
-    expect(user.maxMonthlyUsd).toBe(20);
-    expect(user.localMode).toBe("fallback");
-    expect(await hasProviderKey(paths, "openrouter")).toBe(true);
-    expect(await hasProviderKey(paths, "groq")).toBe(true);
-    expect(applied[0]?.model).toBe("free-best");
+    const written = JSON.parse(await fs.readFile(modelsPath, "utf8"));
+    expect(written.providers.ollama).toBeTruthy();
+    expect(written.providers["9router"].apiKey).toBe("sk-router");
+    expect(written.providers["9router"].baseUrl).toBe("http://127.0.0.1:20128/v1");
+    const ids = written.providers["9router"].models.map((m: { id: string }) => m.id);
+    expect(ids).toContain("free-best");
+    expect(ids).toContain("cf/a");
+    expect(prompter.infos.join("\n")).toMatch(/Suggested free-best order/);
   });
 
-  it("does not store a rejected key", async () => {
-    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["bad-key", "bad-key"] });
-
-    await runSetup(ctx, {
+  it("returns an error when no 9Router key is provided", async () => {
+    const prompter = new ScriptedPrompter({ confirms: [true], secrets: [""] });
+    const code = await runSetup(ctx, {
       prompter,
-      paths,
-      fetchImpl: rejectingFetch(),
-      router: new DownRouter(),
-      applyFiles,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
       detectLocal: async () => [],
     });
-
-    expect(await hasProviderKey(paths, "openrouter")).toBe(false);
-    expect(await hasProviderKey(paths, "groq")).toBe(false);
-    expect(prompter.infos.join(" ")).toMatch(/rejected/);
+    expect(code).toBe(1);
+    await expect(
+      fs.access(path.join(home, ".pi", "agent", "models.json")),
+    ).rejects.toBeTruthy();
   });
 
-  it("skips keys when the student presses Enter", async () => {
-    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["", ""] });
-
-    await runSetup(ctx, {
+  it("can configure OpenCode instead of Pi", async () => {
+    const prompter = new ScriptedPrompter({
+      confirms: [true, false],
+      secrets: ["sk-router"],
+      selects: ["opencode"],
+    });
+    const code = await runSetup(ctx, {
       prompter,
-      paths,
-      fetchImpl: okFetch(),
-      router: new DownRouter(),
-      applyFiles,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
       detectLocal: async () => [],
     });
-
-    expect(await hasProviderKey(paths, "openrouter")).toBe(false);
-    expect(prompter.infos.join(" ")).toMatch(/Skipped OpenRouter/);
-  });
-
-  it("offers local modes when a local server is detected", async () => {
-    const prompter = new ScriptedPrompter({ selects: ["free", "only"], secrets: ["", ""] });
-
-    await runSetup(ctx, {
-      prompter,
-      paths,
-      fetchImpl: okFetch(),
-      router: new DownRouter(),
-      applyFiles,
-      detectLocal: async () => [
-        { engine: "ollama", port: 11434, baseUrl: "http://127.0.0.1:11434", reachable: true, detail: "" },
-      ],
-    });
-
-    const user = await loadUserConfig(paths);
-    expect(user.localMode).toBe("only");
-    expect(user.enabledProviders).toContain("local");
-  });
-
-  it("offers to install and start the router when it is not running", async () => {
-    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["", ""], confirms: [true] });
-    let started = 0;
-    const manager = {
-      isRunning: async () => false,
-      isInstalled: async () => false,
-      install: async () => ({ code: 0, stdout: "", stderr: "" }),
-      start: async () => {
-        started += 1;
-        return { started: true, alreadyRunning: false, detail: "9Router started" };
-      },
-      stop: async () => ({ stopped: true, detail: "" }),
-      uninstall: async () => {},
-    };
-
-    await runSetup(ctx, {
-      prompter,
-      paths,
-      fetchImpl: okFetch(),
-      router: new DownRouter(),
-      applyFiles,
-      detectLocal: async () => [],
-      routerManager: manager,
-    });
-
-    expect(started).toBe(1);
-    expect(prompter.infos.join(" ")).toMatch(/9Router started/);
-  });
-
-  it("does not install when the student declines", async () => {
-    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["", ""], confirms: [false] });
-    let started = 0;
-    const manager = {
-      isRunning: async () => false,
-      isInstalled: async () => false,
-      install: async () => ({ code: 0, stdout: "", stderr: "" }),
-      start: async () => {
-        started += 1;
-        return { started: true, alreadyRunning: false, detail: "" };
-      },
-      stop: async () => ({ stopped: true, detail: "" }),
-      uninstall: async () => {},
-    };
-
-    await runSetup(ctx, {
-      prompter,
-      paths,
-      fetchImpl: okFetch(),
-      router: new DownRouter(),
-      applyFiles,
-      detectLocal: async () => [],
-      routerManager: manager,
-    });
-
-    expect(started).toBe(0);
+    expect(code).toBe(0);
+    const config = JSON.parse(
+      await fs.readFile(path.join(home, ".config", "opencode", "opencode.json"), "utf8"),
+    );
+    expect(config.provider.router9.options.apiKey).toBe("sk-router");
+    expect(config.model).toBe("router9/free-best");
   });
 });
