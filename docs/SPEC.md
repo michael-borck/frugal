@@ -138,6 +138,9 @@ Start or stop the managed 9Router (start installs the pinned version locally on 
 Everyday
 frugal refresh
 Rebuild the combos now from the latest rankings and picks
+Everyday
+frugal verify
+Probe the models 9Router advertises (a spread across providers, configurable limit) and report which actually answer, with a suggested combo order; records the results in the reliability ledger
 Models
 frugal models
 List the combo in order with source (local, free, paid), score tier and state
@@ -155,7 +158,7 @@ frugal local check
 Benchmark the local model on this GPU and compare it with the top free cloud model
 Settings
 frugal rankings
-Configure the hosted results.json, picks.json and usage ranking URLs; all are optional and unset means a graceful fallback
+Configure the hosted catalog.json, results.json, picks.json and usage ranking URLs; results, picks and usage are optional and unset means a graceful fallback, while catalog.json defaults to the instructor's published copy
 Upkeep
 frugal reliability
 Show observed success rate, recency-weighted score and latency per provider and model over a time window
@@ -198,8 +201,9 @@ Router lifecycle. A RouterManager owns 9Router on every platform: detect, instal
 First use requires Node. Removing that requirement is the desktop app's job (see section 11): it bundles a Node runtime and 9Router so a low-tech student double-clicks one installer.
 ### 4. Project 1: ranking, providers, tiers and failover
 The combo is built in four steps, and each step must fail safe: if any input is unreachable, frugal keeps the last good combo and says so in doctor.
-Candidates. Fetch OpenRouter's model list and keep entries whose prompt and completion price is $0 (the :free models). Add the models served by the other providers the student enabled: free providers such as OpenCode Free, a local server, and on the budget tier their paid plan.
+Candidates. Prefer the published catalog.json from frugal-bench, which lists each provider's models with a computed free or budget access, context window and capability flags; keep only models from the student's enabled providers and tier. When no catalog is available or it is unreachable, fall back to fetching OpenRouter's model list and keeping entries whose prompt and completion price is $0 (the :free models). Also add the models served by other enabled providers: free providers such as OpenCode Free, a local server, and on the budget tier their paid plan.
 Filters. Drop any candidate that is not text-output, lacks tool-calling support, has a context window below 128K tokens (configurable; local models use a lower minimum of their own, since they rarely run at 128K), or is on the instructor's ban list. This removes safety classifiers, rerankers and tiny models that appear in free lists but are useless for coding agents.
+Verification. A model list is a hint, not proof: 9Router caches provider catalogs, provider /v1/models lists can be stale, a :free suffix is not a price guarantee, and an advertised model may 404 or be exhausted. frugal verify probes a spread of the advertised models across providers (default a small limit, configurable) with a one-token request and classifies the outcome: 200 is eligible, 429 means cool down until reset, 404 or 400 means stale and is dropped, 5xx means the provider is degraded. Results are timestamped in the reliability ledger and drive the ranking. Only models that answered should be placed in a combo; if too few pass, frugal keeps the last good combo. Probing spends a small amount of quota, so the default is a limited, cached probe of the candidates that could enter the combo, not the whole list, and a no-probe path exists. Combo writing is currently dashboard-manual because 9Router's /api needs a dashboard session, not the API key; frugal prints a paste-ready order until that is confirmed in the spike.
 Score. Order by the first source available, in this priority:
 frugal-bench results.json composite score, grouped into tiers (see section 8)
 Bench availability, then locally observed reliability, as tiebreakers within a tier. Within a tier frugal orders by availability first, then by the reliability ledger's recency-weighted success rate, then by usage rank.
@@ -460,7 +464,7 @@ Retrieval rate
 Score formula
 S = 0.40\,C + 0.30\,T + 0.20\,A + 0.10\,L,\qquad C,T,A,L \in [0,1]
 Gates. A model with a Tools score below 0.5 or an Availability score below 0.6 is excluded from the combo regardless of its composite, because it will fail agents in practice. Local entries are gated on Tools only, because Availability does not apply to them.
-Tiers. Sort by S, estimate a 95% confidence interval per model from the sample counts, and assign tiers (A, B, C) so that models whose intervals overlap share a tier. Within a tier, frugal orders by availability first, then by usage rank.
+Tiers. Sort by S, estimate a 95% confidence interval per model from the sample counts, and assign tiers (A, B, C) so that models whose intervals overlap share a tier. Within a tier, frugal orders by bench availability first, then by observed reliability, then by usage rank.
 Task design rules
 Tasks are short and self-contained, with deterministic tests run in a sandbox with no network access.
 Roughly 70% of tasks are public in the repository; 30% are private and rotate every quarter.
@@ -492,8 +496,9 @@ Read the account's remaining free-request count from the API before each batch a
 Publish results only when a run completes; a partial run updates only the models it finished, with their own timestamps.
 Keep raw responses for 90 days so that surprising scores can be audited.
 Free endpoints may log prompts, so the benchmark must contain no private data, including in the private task set.
-### 10. Interface contract: results.json, picks.json and user.json
-Both files are static JSON hosted at stable HTTPS URLs (for example GitHub raw files or Pages). Each carries a schema_version; frugal ignores a file whose major version it does not recognize and keeps its last good copy.
+### 10. Interface contract: catalog.json, results.json, picks.json and user.json
+The hosted files (catalog.json, results.json and picks.json) are static JSON at stable HTTPS URLs (for example GitHub raw files or Pages). Each carries a schema_version; frugal ignores a file whose major version it does not recognize and keeps its last good copy.
+catalog.json (written by frugal-bench's catalog job). Provider/model metadata: per provider, id, label, fetched_at, error, and models with id, computed access (free or budget), price per 1M input and output tokens, context, tools, vision and any prompt-training flag. frugal uses it as the default candidate source, filtered to the student's enabled providers and tier, and falls back to a live OpenRouter fetch when it is unavailable. It spends no model tokens to build.
 results.json (written by frugal-bench, one entry per model)
 {  "schema_version": "1.0",  "generated_at": "2026-11-16T02:00:00Z",  "suite_version": "2026.11",  "models": [    {      "id": "vendor/model-name:free",      "provider": "openrouter",      "tier": "A",      "score": 0.71,      "score_ci95": [0.64, 0.78],      "suites": { "code": 0.68, "tools": 0.82, "availability": 0.9, "long_context": 0.6 },      "median_latency_ms": 2400,      "context_tokens": 262144,      "gates_passed": true,      "last_full_run": "2026-11-01",      "last_seen_free": "2026-11-16",      "status": "active"    }  ]}
 picks.json (written by the instructor)

@@ -105,6 +105,7 @@ export async function loadUserConfig(paths: Paths): Promise<UserConfig> {
     picksUrl: data.picks_url as string | undefined,
     resultsUrl: data.results_url as string | undefined,
     usageUrl: data.usage_url as string | undefined,
+    catalogUrl: data.catalog_url as string | undefined,
   };
 }
 
@@ -122,6 +123,7 @@ export async function saveUserConfig(paths: Paths, config: UserConfig): Promise<
   if (config.picksUrl) payload.picks_url = config.picksUrl;
   if (config.resultsUrl) payload.results_url = config.resultsUrl;
   if (config.usageUrl) payload.usage_url = config.usageUrl;
+  if (config.catalogUrl) payload.catalog_url = config.catalogUrl;
   await writeJsonAtomic(paths.userConfigPath, payload);
 }
 

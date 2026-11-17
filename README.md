@@ -31,6 +31,7 @@ frugal setup
 | `frugal doctor` | Checks every link in the chain; `--fix` applies safe fixes |
 | `frugal start` / `stop` | Start or stop the router service |
 | `frugal refresh` | Rebuild combos from the latest rankings and picks |
+| `frugal verify` | Probe the models 9Router advertises and keep only the ones that answer |
 | `frugal models` | List the combo in order |
 | `frugal prefer` / `ban` / `lock` / `reset` | Student overrides |
 | `frugal tier free\|budget` | Switch tier |
@@ -53,15 +54,30 @@ Every command accepts `--json` where it prints data, so pilot results can be col
 
 ## Ranking sources
 
-The combo order comes from, in priority: student pins/bans, instructor `picks.json`, `frugal-bench` `results.json`, then usage rank and model name. All three hosted sources are optional and set with `frugal rankings`:
+Where the candidate models come from: `frugal-bench`'s published **`catalog.json`** by default (`https://raw.githubusercontent.com/michael-borck/frugal-bench/main/catalog.json`), filtered to the student's enabled providers and tier. If the catalog is unreachable, frugal falls back to a live OpenRouter free-model fetch. Add more providers with `frugal add`.
+
+The combo order comes from, in priority: student pins/bans, instructor `picks.json`, `frugal-bench` `results.json`, then bench availability, observed reliability, usage rank and model name. All hosted sources are optional and set with `frugal rankings`:
 
 ```sh
-frugal rankings --results https://class.example/results.json \
+frugal rankings --catalog https://class.example/catalog.json \
+                --results https://class.example/results.json \
                 --picks   https://class.example/picks.json \
                 --usage   https://class.example/usage.json
 ```
 
-When a source is unset or unreachable, frugal falls back gracefully (no hardcoded placeholder URLs). The usage source is deliberately pluggable: OpenRouter's public models API exposes no usage field, so either point `--usage` at a hosted ranking the instructor publishes, or at a verified OpenRouter ranking endpoint once the spike confirms one.
+When a source is unset or unreachable, frugal falls back gracefully (no hardcoded placeholder URLs, except the default catalog above). The usage source is deliberately pluggable: OpenRouter's public models API exposes no usage field, so either point `--usage` at a hosted ranking the instructor publishes, or at a verified OpenRouter ranking endpoint once the spike confirms one.
+
+## Verifying models
+
+9Router's `/v1/models` is a cached hint, not truth: it advertises ids that 404, models that are not chat-capable, and `:free` names that are neither free nor working. `frugal verify` probes a spread of the advertised models with a one-token request and reports which actually answer, records the results in the reliability ledger, and prints a paste-ready `free-best` order.
+
+```sh
+export FRUGAL_ROUTER_KEY="$(cat ~/9router.txt)"   # 9Router's own API key, not a provider key
+frugal verify --provider cf --limit 5
+frugal verify --limit 12 --out verified.json
+```
+
+Probing spends a small amount of quota (one token per model), so the default is a limited spread, not the whole list. Writing the combo is still dashboard-manual: 9Router's `/api` needs a dashboard session, not the API key (recorded in `docs/SPIKE.md`).
 
 ## Development
 

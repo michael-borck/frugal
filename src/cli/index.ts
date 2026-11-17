@@ -8,6 +8,7 @@ import { doctorCommand } from "./commands/doctor.js";
 import { setupCommand } from "./commands/setup.js";
 import { startCommand, stopCommand } from "./commands/service.js";
 import { refreshCommand } from "./commands/refresh.js";
+import { verifyCommand } from "./commands/verify.js";
 import {
   modelsCommand,
   makeOverrideCommand,
@@ -44,6 +45,7 @@ const COMMANDS: Command[] = [
   startCommand,
   stopCommand,
   refreshCommand,
+  verifyCommand,
   modelsCommand,
   makeOverrideCommand("prefer"),
   makeOverrideCommand("ban"),

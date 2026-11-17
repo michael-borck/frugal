@@ -3,6 +3,7 @@ import { HttpRouterClient } from "../../core/routerClient.js";
 import { HttpRankingSource } from "../../core/rankingSource.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
 import { loadReliability, reliabilityMap } from "../../core/reliability.js";
+import { DEFAULT_CATALOG_URL } from "../../core/catalog.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
 const DEFAULT_RESULTS_URL = process.env.FRUGAL_RESULTS_URL;
@@ -21,6 +22,7 @@ export const refreshCommand: Command = {
       resultsUrl: user.resultsUrl ?? DEFAULT_RESULTS_URL,
       picksUrl: user.picksUrl ?? DEFAULT_PICKS_URL,
       usageUrl: user.usageUrl ?? DEFAULT_USAGE_URL,
+      catalogUrl: user.catalogUrl ?? process.env.FRUGAL_CATALOG_URL ?? DEFAULT_CATALOG_URL,
     });
     const router = new HttpRouterClient();
 

@@ -95,6 +95,10 @@ export function mergeCandidates(input: MergeInput): MergeResult {
       dropped.push({ id: candidate.id, reason });
       continue;
     }
+    if (!user.enabledProviders.includes(candidate.provider)) {
+      dropped.push({ id: candidate.id, reason: "provider-not-enabled" });
+      continue;
+    }
     const scored = byId.get(candidate.id);
     const reliability =
       input.reliability?.get(candidate.id) ?? input.reliability?.get(candidate.provider);

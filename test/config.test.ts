@@ -47,6 +47,7 @@ describe("config round-trip", () => {
       picksUrl: "https://example.test/picks.json",
       resultsUrl: "https://example.test/results.json",
       usageUrl: "https://example.test/usage.json",
+      catalogUrl: "https://example.test/catalog.json",
     });
 
     const loaded = await loadUserConfig(paths);
@@ -60,6 +61,7 @@ describe("config round-trip", () => {
     expect(loaded.picksUrl).toBe("https://example.test/picks.json");
     expect(loaded.resultsUrl).toBe("https://example.test/results.json");
     expect(loaded.usageUrl).toBe("https://example.test/usage.json");
+    expect(loaded.catalogUrl).toBe("https://example.test/catalog.json");
   });
 
   it("loads back the last good combo (snake_case on disk)", async () => {

@@ -1,4 +1,5 @@
 import { defaultPaths, loadUserConfig, saveUserConfig, type Paths } from "../../core/config.js";
+import { DEFAULT_CATALOG_URL } from "../../core/catalog.js";
 import type { UserConfig } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
@@ -14,11 +15,12 @@ export function isAllowedRankingUrl(value: string): string | null {
   return "use https (or http on localhost)";
 }
 
-type Field = "resultsUrl" | "picksUrl" | "usageUrl";
+type Field = "resultsUrl" | "picksUrl" | "usageUrl" | "catalogUrl";
 const FLAG_TO_FIELD: Record<string, Field> = {
   results: "resultsUrl",
   picks: "picksUrl",
   usage: "usageUrl",
+  catalog: "catalogUrl",
 };
 
 interface Parsed {
@@ -82,16 +84,21 @@ export async function runRankings(
     user.resultsUrl = undefined;
     user.picksUrl = undefined;
     user.usageUrl = undefined;
+    user.catalogUrl = undefined;
   }
   for (const [field, value] of Object.entries(parsed.values) as Array<[Field, string]>) {
     user[field] = value;
   }
   if (changed) await saveUserConfig(paths, user);
 
+  const catalogUrl =
+    effective(user, "catalogUrl", process.env.FRUGAL_CATALOG_URL) ?? DEFAULT_CATALOG_URL;
   const report = {
     results_url: effective(user, "resultsUrl", process.env.FRUGAL_RESULTS_URL),
     picks_url: effective(user, "picksUrl", process.env.FRUGAL_PICKS_URL),
     usage_url: effective(user, "usageUrl", process.env.FRUGAL_USAGE_URL),
+    catalog_url: catalogUrl,
+    catalog_overridden: user.catalogUrl != null || process.env.FRUGAL_CATALOG_URL != null,
     configured: effective(user, "resultsUrl", process.env.FRUGAL_RESULTS_URL) != null,
   };
 
@@ -100,10 +107,14 @@ export async function runRankings(
     out(ctx, `results.json: ${report.results_url ?? "(not configured)"}`);
     out(ctx, `picks.json:   ${report.picks_url ?? "(not configured)"}`);
     out(ctx, `usage rank:   ${report.usage_url ?? "(not configured)"}`);
+    out(
+      ctx,
+      `catalog.json: ${catalogUrl}${report.catalog_overridden ? "" : " (default)"}`,
+    );
     if (!report.configured) {
       out(ctx, "");
-      out(ctx, "Without hosted rankings, frugal ranks by usage (if configured) and then model name.");
-      out(ctx, "Set them with: frugal rankings --results <url> --picks <url> --usage <url>");
+      out(ctx, "Without a hosted results.json, quality ranking falls back to availability, reliability and usage.");
+      out(ctx, "Set sources with: frugal rankings --results <url> --picks <url> --usage <url> --catalog <url>");
     }
     if (changed) out(ctx, "Saved.");
   }
@@ -112,7 +123,7 @@ export async function runRankings(
 
 export const rankingsCommand: Command = {
   name: "rankings",
-  summary: "Configure the hosted results.json, picks.json and usage ranking URLs.",
+  summary: "Configure the hosted catalog, results, picks and usage ranking URLs.",
   group: "Settings",
   async run(ctx: CommandContext, args: string[]) {
     return runRankings(ctx, args);

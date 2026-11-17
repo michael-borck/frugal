@@ -116,6 +116,7 @@ export interface UserConfig {
   picksUrl?: string;
   resultsUrl?: string;
   usageUrl?: string;
+  catalogUrl?: string;
 }
 
 export interface ComboSnapshot {

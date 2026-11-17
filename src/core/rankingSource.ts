@@ -4,6 +4,7 @@ import {
   parseOpenRouterFreeModels,
   type OpenRouterModelsResponse,
 } from "./candidates.js";
+import { parseCatalog } from "./catalog.js";
 import { fetchUsageRanks } from "./usage.js";
 
 export interface RankingSource {
@@ -17,6 +18,8 @@ export interface RankingSourceOptions {
   resultsUrl?: string;
   picksUrl?: string;
   usageUrl?: string;
+  /** Optional provider/model catalog; when absent, live OpenRouter is used. */
+  catalogUrl?: string;
   openRouterModelsUrl?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -74,21 +77,33 @@ export class HttpRankingSource implements RankingSource {
   }
 
   async candidates(): Promise<ModelCandidate[]> {
-    const payload = await fetchJson<OpenRouterModelsResponse>(
-      this.options.openRouterModelsUrl ?? OPENROUTER_MODELS_URL,
-      this.options.fetchImpl ?? fetch,
-      this.options.timeoutMs ?? 10_000,
-    );
-    if (!payload) {
-      throw new Error("could not fetch the OpenRouter model list");
-    }
-    const candidates = parseOpenRouterFreeModels(payload);
+    const fetchImpl = this.options.fetchImpl ?? fetch;
+    const timeoutMs = this.options.timeoutMs ?? 10_000;
 
-    const usage = await fetchUsageRanks(
-      this.options.usageUrl,
-      this.options.fetchImpl ?? fetch,
-      this.options.timeoutMs ?? 10_000,
-    );
+    let candidates: ModelCandidate[] | null = null;
+
+    if (this.options.catalogUrl) {
+      const catalog = await fetchJson<unknown>(this.options.catalogUrl, fetchImpl, timeoutMs);
+      if (catalog) {
+        const parsed = parseCatalog(catalog);
+        if (parsed.length > 0) candidates = parsed;
+      }
+    }
+
+    if (!candidates) {
+      // Fallback: live OpenRouter free-model discovery.
+      const payload = await fetchJson<OpenRouterModelsResponse>(
+        this.options.openRouterModelsUrl ?? OPENROUTER_MODELS_URL,
+        fetchImpl,
+        timeoutMs,
+      );
+      if (!payload) {
+        throw new Error("could not fetch a model catalog or the OpenRouter model list");
+      }
+      candidates = parseOpenRouterFreeModels(payload);
+    }
+
+    const usage = await fetchUsageRanks(this.options.usageUrl, fetchImpl, timeoutMs);
     if (usage.size > 0) {
       for (const candidate of candidates) {
         const rank = usage.get(candidate.id);

@@ -94,23 +94,27 @@ describe("recommendedContextLimit", () => {
   });
 
   it("ignores local members when a cloud member exists", () => {
+    const user = defaultUserConfig();
+    user.enabledProviders = [...user.enabledProviders, "local"];
     const built = buildCombos({
       candidates: [
         candidate({ id: "cloud", contextTokens: 200_000 }),
         candidate({ id: "tiny-local", provider: "local", contextTokens: 8_192 }),
       ],
-      user: defaultUserConfig(),
+      user,
     });
     expect(recommendedContextLimit(built.free)).toBe(200_000);
   });
 
   it("uses the smallest member for a local-only combo", () => {
+    const user = defaultUserConfig();
+    user.enabledProviders = ["local"];
     const built = buildCombos({
       candidates: [
         candidate({ id: "l1", provider: "local", contextTokens: 16_384 }),
         candidate({ id: "l2", provider: "local", contextTokens: 8_192 }),
       ],
-      user: defaultUserConfig(),
+      user,
     });
     expect(recommendedContextLimit(built.free)).toBe(8_192);
   });

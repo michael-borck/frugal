@@ -150,6 +150,18 @@ describe("mergeCandidates", () => {
     expect(ordered.map((c) => c.id)).toEqual(["steady", "shaky"]);
   });
 
+  it("drops models from providers the student has not enabled", () => {
+    const { ordered, dropped } = mergeCandidates({
+      candidates: [
+        candidate({ id: "or-model" }),
+        candidate({ id: "req-model", provider: "requesty" }),
+      ],
+      user: defaultUserConfig(),
+    });
+    expect(ordered.map((c) => c.id)).toEqual(["or-model"]);
+    expect(dropped.some((d) => d.id === "req-model" && d.reason === "provider-not-enabled")).toBe(true);
+  });
+
   it("caps the combo at the maximum entry count", () => {
     const many = Array.from({ length: 20 }, (_, i) => candidate({ id: `m${i}` }));
     const { ordered } = mergeCandidates({ candidates: many, user: defaultUserConfig() });

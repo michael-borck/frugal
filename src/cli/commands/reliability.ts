@@ -35,7 +35,11 @@ export const reliabilityCommand: Command = {
 
     out(ctx, `Observed reliability over the last ${windowDays} days:`);
     for (const entry of summary.entries) {
-      const label = entry.model ? `${entry.provider}/${entry.model}` : `${entry.provider} (all)`;
+      const label = entry.model
+        ? entry.model.startsWith(`${entry.provider}/`)
+          ? entry.model
+          : `${entry.provider}/${entry.model}`
+        : `${entry.provider} (all)`;
       const rate = entry.successRate == null ? "n/a" : `${Math.round(entry.successRate * 100)}%`;
       const ewma = entry.ewmaSuccess == null ? "n/a" : entry.ewmaSuccess.toFixed(2);
       const latency = entry.medianLatencyMs == null ? "n/a" : `${entry.medianLatencyMs}ms`;

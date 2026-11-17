@@ -86,6 +86,26 @@ Until then, usage ranking is configured with `frugal rankings --usage <url>` and
 
 `frugal setup` must set the dashboard password and API key without a human clicking around the dashboard. Determine whether 9Router accepts them via environment variables, a config/data file, or a first-run CLI flag. Record the exact mechanism and where the data directory lives, so RouterManager can provision it after install and so `secrets.json` can hand keys to 9Router if a registration API exists.
 
+## 11. Provider catalogs and custom connections
+
+Most providers are OpenAI-compatible and expose `GET /v1/models`, so the standard way to get a fresh model list is that endpoint. Confirm for a live 9Router:
+
+- Can you add a provider as a **custom OpenAI-compatible connection** (base URL + key) so 9Router fetches that provider's own `/v1/models` instead of its bundled cached catalog? Try OpenRouter (`https://openrouter.ai/api/v1`), Requesty (`https://router.requesty.ai/v1`), Kilo (`https://api.kilo.ai/api/gateway`).
+- Does 9Router namespace model ids per connection (for example `cf/…`, `kgw/…`), and how does that map to the provider's unprefixed ids?
+- Is there any refresh of a connection's model list, via UI or API?
+- Does the dashboard session (not the `sk-` key) expose endpoints to list/add connections and create combos? Record the exact auth (cookie/JWT) and routes.
+
+## Live findings (recorded 2026-11-17)
+
+From a real 9Router with OpenCode Free, OpenRouter, NVIDIA, Cloudflare, Kimchi, Kilo and GLM connections:
+
+- `/v1/models` returned 74 ids, but many were stale or unusable: `nvidia/…` 404, `kimchi/…` 503, `glm/…` 503, `oc/…` 502, `openrouter/typesafe/jev-1.13` 400 (a decisions model, not chat), and a Kilo `:free` id 404. Only some Cloudflare models and `kgw/kilo-auto/free` answered.
+- `/api/*` returns **401 with the `sk-` API key**; combos and providers need the dashboard session. `GET /combos` is 404. So frugal cannot read or create combos with the key alone.
+- There was **no visible UI to refresh** a connection's model list.
+- `:free` in an id is not a price or availability guarantee.
+- **Ollama Cloud is no longer a free option**; treat it as paid.
+- The only reliable signal was a live request. `frugal verify` now probes a spread of ids and records pass/fail/latency.
+
 ## Exit check
 
 A hand-made `free-best` combo answers through OpenCode via 9Router, falls back on a 429 with no student-visible error, and every endpoint frugal calls has been corrected to the real one with a smoke test.

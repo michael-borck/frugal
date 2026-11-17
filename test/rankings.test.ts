@@ -44,7 +44,7 @@ describe("runRankings", () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 
-  it("sets results, picks and usage URLs", async () => {
+  it("sets results, picks, usage and catalog URLs", async () => {
     const code = await runRankings(
       ctx,
       [
@@ -53,6 +53,8 @@ describe("runRankings", () => {
         "--picks=https://example.test/picks.json",
         "--usage",
         "https://example.test/usage.json",
+        "--catalog",
+        "https://example.test/catalog.json",
       ],
       paths,
     );
@@ -61,13 +63,15 @@ describe("runRankings", () => {
     expect(user.resultsUrl).toBe("https://example.test/results.json");
     expect(user.picksUrl).toBe("https://example.test/picks.json");
     expect(user.usageUrl).toBe("https://example.test/usage.json");
+    expect(user.catalogUrl).toBe("https://example.test/catalog.json");
   });
 
   it("clears configured URLs", async () => {
-    await runRankings(ctx, ["--results", "https://example.test/r.json"], paths);
+    await runRankings(ctx, ["--results", "https://example.test/r.json", "--catalog", "https://example.test/c.json"], paths);
     await runRankings(ctx, ["--clear"], paths);
     const user = await loadUserConfig(paths);
     expect(user.resultsUrl).toBeUndefined();
+    expect(user.catalogUrl).toBeUndefined();
   });
 
   it("rejects a bad URL", async () => {
