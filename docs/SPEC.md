@@ -491,6 +491,8 @@ frugal-bench v0.1. Code and Availability suites, screening round, results.json o
 frugal-bench v0.2. Tools and Long-context suites, tiers with confidence intervals, monthly validation against an external leaderboard.
 Integration. frugal consumes results.json; compare student outcomes against usage-only ranking.
 Version 2 ideas. Headless agent-session benchmarks, more free providers, optional telemetry.
+Possible third project: frugal-ui (control panel). A small local UI for the configurator, not a chat app. It shows tier, configured combos, which model last served, quota (where 9Router exposes it), and doctor results, with buttons for refresh, doctor, and prefer/ban/lock. It makes the transparent behaviour visible without moving frugal into the request path. Ship it as a web page served locally by frugal ui (open in the browser) first; a Tauri desktop shell is optional later if a tray icon and native notifications are wanted (it pairs well with frugal watch). Reuse the same status data as the CLI. Avoid Electron (heavy) and avoid a Python/Streamlit stack, which would split the codebase.
+Not in scope: a Msty clone. A full chat application with RAG, image and speech processing is a different product, and it duplicates Msty, which frugal already supports as the GUI chat client. If such an app is ever wanted, it is a separate project (working name frugal-chat) that talks to 9Router; 9Router already exposes image, TTS, STT and embedding endpoints under /v1/models/{kind}, so it needs no extra provider wiring in frugal. Do not fold chat features into frugal.
 Where the added scope lands
 Spike (step 1): also verify 9Router's cooldown and context handling, that a 400 context-overflow stays request-scoped, what /v1/models reports as a combo's context window, OpenCode Go's endpoint and key use, Copilot Student inside OpenCode, and compaction in OpenCode and Pi.
 v0.2 (step 4): tiers and the cap, prefer, ban and lock, cooldown reporting, harness compaction configuration and the declared combo context window, the Copilot Student guide, and optionally frugal watch and frugal mcp.
@@ -568,6 +570,7 @@ Decided: local models are in scope as a first-class provider, delivered in fruga
 Added open questions
 Decided: the project is frugal (command frugal, npm package frugalrouter), with frugal-bench for the benchmark.
 Decided: frugal is a configurator, not a proxy (decision A). 9Router owns failover; the harness owns compaction. OpenCode is the recommended default harness; Pi (lightweight) and Msty (GUI, guided paste) are supported. frugal watch and frugal mcp are optional v0.2 features.
+Decided: no Msty clone. Msty remains the GUI chat client; a later frugal-ui, if built, is a local control panel only, and any chat/RAG/vision app is a separate project (frugal-chat) that talks to 9Router.
 Should the default cap be lower than the $40 ceiling, for example $20?
 Who pays for the budget tier: students, a sponsor or the school?
 Should the instructor hold a Go key so that frugal-bench can rank paid models?
