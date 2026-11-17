@@ -118,6 +118,8 @@ function makeSession(overrides: Partial<SessionApi> = {}): SessionApi {
     ensureFallbackStrategy: async () => true,
     validateProvider: async () => ({ ok: true, detail: "key accepted" }),
     createProvider: async () => ({ ok: true, detail: "connected", already: false }),
+    listProviderNodes: async () => [],
+    ensureProviderNode: async (input) => ({ id: `node-${input.prefix}`, created: true }),
     ...overrides,
   };
 }
@@ -345,6 +347,41 @@ describe("runSetup (thin)", () => {
     expect(calls).toContain("validate:cloudflare-ai:cf-token");
     expect(created).toContainEqual(["cloudflare-ai", { accountId: "acct" }]);
     expect(prompter.infos.join("\n")).toMatch(/OpenRouter connected/);
+  });
+
+  it("adds a custom provider by creating a node first", async () => {
+    const calls: string[] = [];
+    const session = makeSession({
+      ensureProviderNode: async (input) => {
+        calls.push(`node:${input.name}:${input.baseUrl}`);
+        return { id: "node-req", created: true };
+      },
+      validateProvider: async (provider, key) => {
+        calls.push(`validate:${provider}:${key}`);
+        return { ok: true, detail: "key accepted" };
+      },
+      createProvider: async (provider, key, _data, name) => {
+        calls.push(`create:${provider}:${key}:${name ?? ""}`);
+        return { ok: true, detail: "connected", already: false };
+      },
+    });
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session,
+      nonInteractive: true,
+      harness: "none",
+      verify: false,
+      providers: ["requesty"],
+      providerKeys: new Map([["REQUESTY_API_KEY", "r-key"]]),
+    });
+    expect(code).toBe(0);
+    expect(calls).toContain("node:Requesty:https://router.requesty.ai/v1");
+    expect(calls).toContain("validate:node-req:r-key");
+    expect(calls).toContain("create:node-req:r-key:Requesty");
   });
 
   it("skips a provider when a required key is missing", async () => {

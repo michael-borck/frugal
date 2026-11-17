@@ -81,7 +81,7 @@ Unattended: `frugal setup --yes --harness pi|opencode|both|msty|none [--verify]`
 
 ## Adding providers
 
-`frugal setup` can add free providers for you through 9Router's API: OpenCode Free (no key), OpenRouter, Groq, Cloudflare (API token + Account ID), Kilo, NVIDIA, Mistral and Gemini. It asks for the key, validates it (`/api/providers/validate`), creates the connection (`/api/providers`) and stores nothing locally; the key lives in 9Router. OAuth providers (Kiro, Gemini CLI, Copilot) still use 9Router's browser flow.
+`frugal setup` can add free providers for you through 9Router's API: OpenCode Free (no key), OpenRouter, Groq, Cloudflare (API token + Account ID), Kilo, NVIDIA, Mistral and Gemini. Requesty and CrowLLM are added as OpenAI-compatible provider nodes (`/api/provider-nodes`) and then connected with the key. It asks for the key, validates it (`/api/providers/validate`), creates the connection (`/api/providers`) and stores nothing locally; the key lives in 9Router. OAuth providers (Kiro, Gemini CLI, Copilot) still use 9Router's browser flow.
 
 Thin per-provider guide (one maintained data source, not a doc per provider):
 
@@ -102,7 +102,9 @@ frugal setup --yes --provider openrouter,groq --harness pi
 frugal setup --yes --provider openrouter,cloudflare-ai --keys-file ~/.config/frugal/providers.env
 ```
 
-Env names are in `frugal guide providers` (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, `KILO_API_KEY`, `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`). `--provider opencode` needs no key.
+Env names are in `frugal guide providers` (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, `KILO_API_KEY`, `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`, `REQUESTY_API_KEY`, `CROWLLM_API_KEY`). `--provider opencode` needs no key.
+
+Requesty and CrowLLM use custom OpenAI-compatible nodes with these base URLs: `https://router.requesty.ai/v1` (prefix `requesty`) and `https://crowllm.com/v1` (prefix `crowllm`). CrowLLM publishes no pricing, so it cannot be classified automatically; run `frugal verify` and check the models. Requesty's public models API includes pricing.
 
 ### Budget tier (optional)
 

@@ -18,6 +18,8 @@ export const guideCommand: Command = {
       env_key: guide.envKey ?? null,
       env_aliases: guide.envAliases ?? [],
       env_account: guide.envAccount ?? null,
+      base_url: guide.baseUrl ?? null,
+      prefix: guide.prefix ?? null,
       steps: providerSteps(guide),
     }));
 
@@ -29,7 +31,9 @@ export const guideCommand: Command = {
             ? "no key"
             : provider.auth === "cloudflare"
               ? "API token + Account ID"
-              : "API key";
+              : provider.auth === "custom"
+                ? `custom OpenAI-compatible (${provider.base_url})`
+                : "API key";
         out(ctx, `${provider.label} (${provider.id}) — ${kind}`);
         for (const step of provider.steps) out(ctx, `  - ${step}`);
         out(ctx, "");

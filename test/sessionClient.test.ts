@@ -226,4 +226,73 @@ describe("RouterSession", () => {
       already: true,
     });
   });
+
+  it("sends a connection name when given", async () => {
+    let body: unknown = null;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).endsWith("/api/providers") && init?.method === "POST") {
+        body = JSON.parse(String(init.body));
+        return response(201, { connection: { id: "p1" } });
+      }
+      return response(404, {});
+    }) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    await session.createProvider("node-1", "sk", undefined, "Requesty");
+    expect(body).toMatchObject({ provider: "node-1", apiKey: "sk", name: "Requesty" });
+  });
+
+  it("reuses an existing provider node by base URL", async () => {
+    const fetchImpl = (async (input: string | URL | Request) =>
+      String(input).endsWith("/api/provider-nodes")
+        ? response(200, {
+            nodes: [
+              {
+                id: "node-1",
+                name: "Requesty",
+                prefix: "requesty",
+                baseUrl: "https://router.requesty.ai/v1",
+              },
+            ],
+          })
+        : response(404, {})) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    expect(
+      await session.ensureProviderNode({
+        name: "Requesty",
+        prefix: "requesty",
+        baseUrl: "https://router.requesty.ai/v1/",
+      }),
+    ).toEqual({ id: "node-1", created: false });
+  });
+
+  it("creates a provider node when missing", async () => {
+    let body: unknown = null;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/provider-nodes") && (init?.method ?? "GET") === "GET") {
+        return response(200, { nodes: [] });
+      }
+      if (url.endsWith("/api/provider-nodes") && init?.method === "POST") {
+        body = JSON.parse(String(init.body));
+        return response(201, { node: { id: "node-2" } });
+      }
+      return response(404, {});
+    }) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    expect(
+      await session.ensureProviderNode({
+        name: "CrowLLM",
+        prefix: "crowllm",
+        baseUrl: "https://crowllm.com/v1",
+        apiType: "chat",
+      }),
+    ).toEqual({ id: "node-2", created: true });
+    expect(body).toEqual({
+      name: "CrowLLM",
+      prefix: "crowllm",
+      baseUrl: "https://crowllm.com/v1",
+      apiType: "chat",
+      type: "openai-compatible",
+    });
+  });
 });

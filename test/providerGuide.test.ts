@@ -14,6 +14,9 @@ describe("provider guide", () => {
     expect(guideFor("openrouter")?.label).toBe("OpenRouter");
     expect(guideFor("cloudflareai")?.id).toBe("cloudflare-ai");
     expect(guideFor("nope")).toBeUndefined();
+    expect(guideFor("requesty")?.auth).toBe("custom");
+    expect(guideFor("crowllm")?.baseUrl).toBe("https://crowllm.com/v1");
+
   });
 
   it("explains Cloudflare's two values", () => {
@@ -35,6 +38,11 @@ describe("provider guide", () => {
     expect(cf.apiKey).toBe("cf-token");
     expect(cf.accountId).toBe("acct");
     expect(credentialsFor(guideFor("gemini")!, keys).apiKey).toBe("g-key");
+    expect(
+      credentialsFor(guideFor("requesty")!, new Map([["REQUESTY_API_KEY", "req-key"]])).apiKey,
+    ).toBe("req-key");
+    expect(providerSteps(guideFor("requesty")!).join(" ")).toMatch(/router.requesty.ai/);
+
   });
 
   it("reports missing values", () => {

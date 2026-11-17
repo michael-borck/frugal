@@ -108,6 +108,45 @@ async function addProviders(
       continue;
     }
 
+    if (provider.auth === "custom") {
+      const key = (await prompter.secret(`${provider.label} API key:`)).trim();
+      if (!key) {
+        say("Skipped.");
+        continue;
+      }
+      if (!provider.baseUrl) {
+        say(`Skipping ${provider.label}: no base URL configured.`);
+        continue;
+      }
+      let nodeId: string;
+      try {
+        const node = await session.ensureProviderNode({
+          name: provider.label,
+          prefix: provider.prefix ?? provider.id,
+          baseUrl: provider.baseUrl,
+          apiType: provider.apiType ?? "chat",
+        });
+        nodeId = node.id;
+        say(`${provider.label} provider node ${node.created ? "created" : "ready"}.`);
+      } catch (error) {
+        say(`Could not create ${provider.label} provider: ${(error as Error).message}`);
+        continue;
+      }
+      const validation = await session.validateProvider(nodeId, key);
+      if (!validation.ok) {
+        say(`${provider.label}: ${validation.detail}`);
+        continue;
+      }
+      const result = await session.createProvider(nodeId, key, undefined, provider.label);
+      if (result.ok) {
+        added.add(provider.id);
+        say(`${provider.label} connected${result.already ? " (already)" : ""}.`);
+      } else {
+        say(`Could not connect ${provider.label}: ${result.detail}.`);
+      }
+      continue;
+    }
+
     const key = (await prompter.secret(`${provider.label} API key:`)).trim();
     if (!key) {
       say("Skipped.");
@@ -156,6 +195,45 @@ async function addProvidersFromKeys(
       }
       continue;
     }
+    if (guide.auth === "custom") {
+      if (!guide.baseUrl) {
+        say(`Skipping ${guide.label}: no base URL configured.`);
+        continue;
+      }
+      let nodeId: string;
+      try {
+        const node = await session.ensureProviderNode({
+          name: guide.label,
+          prefix: guide.prefix ?? guide.id,
+          baseUrl: guide.baseUrl,
+          apiType: guide.apiType ?? "chat",
+        });
+        nodeId = node.id;
+        say(`${guide.label} provider node ${node.created ? "created" : "ready"}.`);
+      } catch (error) {
+        say(`Could not create ${guide.label} provider: ${(error as Error).message}`);
+        continue;
+      }
+      const validation = await session.validateProvider(nodeId, credentials.apiKey!);
+      if (!validation.ok) {
+        say(`${guide.label}: ${validation.detail}`);
+        continue;
+      }
+      const result = await session.createProvider(
+        nodeId,
+        credentials.apiKey!,
+        undefined,
+        guide.label,
+      );
+      if (result.ok) {
+        added.push(guide.id);
+        say(`${guide.label} connected${result.already ? " (already)" : ""}.`);
+      } else {
+        say(`Could not connect ${guide.label}: ${result.detail}`);
+      }
+      continue;
+    }
+
     const providerSpecificData =
       guide.auth === "cloudflare" && credentials.accountId
         ? { accountId: credentials.accountId }

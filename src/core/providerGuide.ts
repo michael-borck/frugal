@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
-export type ProviderAuth = "none" | "key" | "cloudflare";
+export type ProviderAuth = "none" | "key" | "cloudflare" | "custom";
+
 
 export interface ProviderGuide {
   id: string;
@@ -12,6 +13,10 @@ export interface ProviderGuide {
   envAliases?: string[];
   envAccount?: string;
   note?: string;
+  /** For auth "custom": register an OpenAI-compatible provider node. */
+  baseUrl?: string;
+  prefix?: string;
+  apiType?: "chat" | "responses";
 }
 
 /** One thin guide per free provider: where to sign up, where the key is, env var. */
@@ -81,6 +86,29 @@ export const PROVIDER_GUIDE: ProviderGuide[] = [
     envKey: "GEMINI_API_KEY",
     envAliases: ["GOOGLE_API_KEY"],
   },
+  {
+    id: "requesty",
+    label: "Requesty",
+    auth: "custom",
+    signupUrl: "https://requesty.ai",
+    keyUrl: "https://app.requesty.ai/api-keys",
+    envKey: "REQUESTY_API_KEY",
+    baseUrl: "https://router.requesty.ai/v1",
+    prefix: "requesty",
+    apiType: "chat",
+    note: "OpenAI-compatible gateway",
+  },
+  {
+    id: "crowllm",
+    label: "CrowLLM",
+    auth: "custom",
+    signupUrl: "https://crowllm.com",
+    envKey: "CROWLLM_API_KEY",
+    baseUrl: "https://crowllm.com/v1",
+    prefix: "crowllm",
+    apiType: "chat",
+    note: "no published pricing; verify models",
+  },
 ];
 
 export function guideFor(value: string): ProviderGuide | undefined {
@@ -101,6 +129,20 @@ export function providerSteps(guide: ProviderGuide): string[] {
       "Copy your Account ID from the dashboard overview.",
       `Paste both when frugal asks, or set ${guide.envKey} and ${guide.envAccount}.`,
     ];
+  }
+  if (guide.auth === "custom") {
+    const steps: string[] = [];
+    if (guide.signupUrl) steps.push(`Create an account or sign in at ${guide.signupUrl}.`);
+    if (guide.keyUrl) {
+      steps.push(`Open ${guide.keyUrl} and create a key; copy it (often shown once).`);
+    } else {
+      steps.push("Find the API keys section in the provider's dashboard and create a key.");
+    }
+    steps.push(
+      `frugal registers it as an OpenAI-compatible provider at ${guide.baseUrl ?? "(base URL)"}.`,
+    );
+    steps.push(`Paste it when frugal asks, or set ${guide.envKey}.`);
+    return steps;
   }
   const steps: string[] = [];
   if (guide.signupUrl) steps.push(`Create an account or sign in at ${guide.signupUrl}.`);

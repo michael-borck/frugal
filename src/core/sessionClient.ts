@@ -7,6 +7,20 @@ export interface ComboRecord {
   kind?: string | null;
 }
 
+export interface ProviderNode {
+  id: string;
+  name: string;
+  prefix: string;
+  baseUrl: string;
+}
+
+export interface EnsureNodeInput {
+  name: string;
+  prefix: string;
+  baseUrl: string;
+  apiType?: "chat" | "responses";
+}
+
 export interface SessionApi {
   login(password: string): Promise<{ ok: boolean; detail: string }>;
   status(): Promise<boolean>;
@@ -25,7 +39,10 @@ export interface SessionApi {
     provider: string,
     apiKey: string,
     providerSpecificData?: Record<string, unknown>,
+    connectionName?: string,
   ): Promise<{ ok: boolean; detail: string; already: boolean }>;
+  listProviderNodes(): Promise<ProviderNode[]>;
+  ensureProviderNode(input: EnsureNodeInput): Promise<{ id: string; created: boolean }>;
 }
 
 export interface SessionOptions {
@@ -222,15 +239,53 @@ export class RouterSession implements SessionApi {
     provider: string,
     apiKey: string,
     providerSpecificData?: Record<string, unknown>,
+    connectionName?: string,
   ): Promise<{ ok: boolean; detail: string; already: boolean }> {
+    const body: Record<string, unknown> = { provider, apiKey, providerSpecificData };
+    if (connectionName) body.name = connectionName;
     const response = await this.request("/api/providers", {
       method: "POST",
-      body: JSON.stringify({ provider, apiKey, providerSpecificData }),
+      body: JSON.stringify(body),
     });
     if (response.status === 409) {
       return { ok: true, detail: "already connected", already: true };
     }
     if (!response.ok) return { ok: false, detail: await this.detail(response), already: false };
     return { ok: true, detail: `${provider} connected`, already: false };
+  }
+
+  async listProviderNodes(): Promise<ProviderNode[]> {
+    const response = await this.request("/api/provider-nodes");
+    if (!response.ok) throw new Error(`/api/provider-nodes: ${await this.detail(response)}`);
+    const body = (await response.json()) as { nodes?: ProviderNode[] };
+    return Array.isArray(body.nodes) ? body.nodes : [];
+  }
+
+  async ensureProviderNode(input: EnsureNodeInput): Promise<{ id: string; created: boolean }> {
+    const nodes = await this.listProviderNodes();
+    const baseUrl = input.baseUrl.replace(/\/$/, "").toLowerCase();
+    const existing = nodes.find(
+      (node) =>
+        (node.name ?? "").toLowerCase() === input.name.toLowerCase() ||
+        (node.baseUrl ?? "").replace(/\/$/, "").toLowerCase() === baseUrl,
+    );
+    if (existing) return { id: existing.id, created: false };
+
+    const response = await this.request("/api/provider-nodes", {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        prefix: input.prefix,
+        baseUrl: input.baseUrl,
+        apiType: input.apiType ?? "chat",
+        type: "openai-compatible",
+      }),
+    });
+    if (!response.ok) throw new Error(`create provider node: ${await this.detail(response)}`);
+    const body = (await response.json()) as { node?: { id?: unknown } };
+    if (typeof body.node?.id !== "string") {
+      throw new Error("provider node response did not include an id");
+    }
+    return { id: body.node.id, created: true };
   }
 }
