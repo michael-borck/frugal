@@ -10,6 +10,19 @@ frugal never sits in the request path. Once configured, the student's tools talk
 
 > Status: early build. Working now: `setup` (start 9Router, dashboard login, guided provider add via 9Router, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: OAuth provider connections (browser) and non-interactive dashboard-password provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
 
+## Where frugal fits: the ladder
+
+When the subscription is the barrier, there are four places AI can live, and every rung speaks an
+OpenAI-shaped API — your tools don't change as you climb:
+
+1. **Local, on your laptop** — Ollama + Pi. No keys, no internet.
+2. **Cloud, direct** — one provider, one model, your key.
+3. **Cloud, proxied** — frugal + 9Router: a verified fallback chain of free models. This repo.
+4. **Shared, on campus** — [Puente](https://locopuente.org), a self-hosted server running the full local stack for many students.
+
+The whole laptop kit — Node, Ollama, Pi, the skill folders, Msty if you want a GUI — is called
+**mochila** (Spanish for backpack): the AI you carry to class. frugal is mochila's cloud rung.
+
 ## Requirements
 
 - Node.js 22 or newer

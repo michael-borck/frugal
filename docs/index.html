@@ -75,6 +75,7 @@
   <nav>
     <a href="https://github.com/michael-borck/frugal">GitHub</a>
     <a href="#quickstart">Quickstart</a>
+    <a href="#ladder">The ladder</a>
     <a href="#docs">Docs</a>
   </nav>
 </header>
@@ -95,6 +96,36 @@
     students on modest laptops: Pi is the default harness, and your existing local Ollama or a
     shared Ollama server stays untouched.
   </div>
+
+  <h2 id="ladder">The ladder</h2>
+  <p>
+    When the subscription is the barrier, there are four places AI can live. Every rung speaks an
+    OpenAI-shaped API, so your tools don't change as you climb — what you learn at the bottom
+    still works at the top:
+  </p>
+  <div class="grid">
+    <div class="card">
+      <h3>1 · Local, on your laptop</h3>
+      <p class="muted">Ollama + Pi. No keys, no internet, fully private. Runs on modest hardware.</p>
+    </div>
+    <div class="card">
+      <h3>2 · Cloud, direct</h3>
+      <p class="muted">One provider, one model, your key. Simple, and the cost stays visible.</p>
+    </div>
+    <div class="card">
+      <h3>3 · Cloud, proxied <span class="tag">frugal</span></h3>
+      <p class="muted">9Router holds the keys; <code>free-best</code> fails over a verified chain of free models. This page.</p>
+    </div>
+    <div class="card">
+      <h3>4 · Shared, on campus <span class="tag">Puente</span></h3>
+      <p class="muted">A server your institution runs for everyone — the full local stack, no setup. <a href="https://locopuente.org">locopuente.org</a></p>
+    </div>
+  </div>
+  <p class="muted">
+    The whole laptop kit — Node, Ollama, Pi, the skill folders, Msty if you want a GUI — is called
+    <strong>mochila</strong> (Spanish for backpack): the AI you carry to class. frugal is mochila's
+    cloud rung; Puente is the bridge at the top. Climb as far as you need.
+  </p>
 
   <h2 id="quickstart">Quickstart</h2>
   <p>Requires Node.js 22 or newer and a terminal. On a clean machine:</p>
