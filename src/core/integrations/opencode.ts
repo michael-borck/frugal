@@ -19,7 +19,21 @@ interface OpenCodeConfig {
   [key: string]: unknown;
   provider?: Record<string, unknown>;
   model?: unknown;
+  compaction?: OpenCodeCompaction;
 }
+
+export interface OpenCodeCompaction {
+  auto?: boolean;
+  buffer?: number | string;
+  keep?: { tokens?: number };
+}
+
+/** Defaults that make compaction fire early enough to leave room for a reply. */
+export const DEFAULT_OPENCODE_COMPACTION: OpenCodeCompaction = {
+  auto: true,
+  buffer: "20%",
+  keep: { tokens: 15000 },
+};
 
 export function openCodeConfigPath(): string {
   const base =
@@ -35,6 +49,16 @@ export interface OpenCodeOptions {
   baseUrl?: string;
   apiKey?: string;
   model?: string;
+  /**
+   * Declare the combo's context window on the frugal model. The harness cannot
+   * see the combo's members, so without this it may assume a default and compact
+   * too late. Set to the combo's minimum window (see recommendedContextLimit).
+   */
+  contextLimit?: number;
+  outputLimit?: number;
+  /** Replace the compaction block outright (power users). Otherwise defaults are
+   * written only when the student has no compaction block yet. */
+  compaction?: OpenCodeCompaction;
   /** Override the resolved config path (used by tests). */
   configPath?: string;
 }
@@ -55,6 +79,17 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
     previousFrugal.models && typeof previousFrugal.models === "object"
       ? (previousFrugal.models as Record<string, unknown>)
       : {};
+  const previousModel =
+    previousModels[model] && typeof previousModels[model] === "object"
+      ? (previousModels[model] as Record<string, unknown>)
+      : {};
+
+  const modelEntry: Record<string, unknown> = { ...previousModel, name: model };
+  if (options.contextLimit != null) {
+    const output =
+      options.outputLimit ?? Math.min(32768, Math.max(1024, Math.floor(options.contextLimit / 4)));
+    modelEntry.limit = { context: options.contextLimit, output };
+  }
 
   const frugalProvider = {
     ...previousFrugal,
@@ -66,25 +101,35 @@ export async function writeOpenCodeConfig(options: OpenCodeOptions = {}): Promis
     },
     models: {
       ...previousModels,
-      [model]: { name: model },
+      [model]: modelEntry,
     },
   };
+
+  const compaction: OpenCodeCompaction =
+    options.compaction ?? existing.compaction ?? DEFAULT_OPENCODE_COMPACTION;
+  const compactionWritten = options.compaction != null || existing.compaction == null;
 
   const next: OpenCodeConfig = {
     ...existing,
     provider: { ...provider, frugal: frugalProvider },
     model: `frugal/${model}`,
+    compaction,
   };
 
   const backedUp = await backupOnce(configPath);
   await writeJsonAtomic(configPath, next);
 
+  const limitText =
+    options.contextLimit != null ? `, context limit ${options.contextLimit}` : "";
+  const compactionText = compactionWritten
+    ? "wrote compaction defaults"
+    : "kept existing compaction settings";
   return {
     name: "opencode",
     changed: true,
     backedUp,
     configPath,
-    detail: `Wrote provider "frugal" (base ${baseUrl}) and set default model to ${model}.`,
+    detail: `Wrote provider "frugal" (base ${baseUrl}), default model ${model}${limitText}; ${compactionText}.`,
   };
 }
 
@@ -92,6 +137,17 @@ export async function openCodeConfigured(configPath = openCodeConfigPath()): Pro
   try {
     const config = await readJson<OpenCodeConfig>(configPath);
     return config != null && config.provider != null && "frugal" in config.provider;
+  } catch {
+    return false;
+  }
+}
+
+export async function openCodeCompactionConfigured(
+  configPath = openCodeConfigPath(),
+): Promise<boolean> {
+  try {
+    const config = await readJson<OpenCodeConfig>(configPath);
+    return config?.compaction != null && config.compaction.auto !== false;
   } catch {
     return false;
   }

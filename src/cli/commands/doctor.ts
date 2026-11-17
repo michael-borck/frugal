@@ -1,7 +1,7 @@
 import { defaultPaths, loadState, loadUserConfig } from "../../core/config.js";
 import { ROUTER_HOST, ROUTER_PORT, combosForTier } from "../../core/types.js";
 import { HttpRouterClient } from "../../core/routerClient.js";
-import { openCodeConfigured } from "../../core/integrations/opencode.js";
+import { openCodeConfigured, openCodeCompactionConfigured } from "../../core/integrations/opencode.js";
 import { piConfigured } from "../../core/integrations/pi.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
@@ -67,6 +67,16 @@ export const doctorCommand: Command = {
       name: "opencode",
       ok: opencodeOk,
       detail: opencodeOk ? "frugal provider configured" : "frugal provider not configured",
+      fix: "Run frugal setup",
+    });
+
+    const compactionOk = await openCodeCompactionConfigured();
+    checks.push({
+      name: "compaction",
+      ok: compactionOk,
+      detail: compactionOk
+        ? "OpenCode auto-compaction configured"
+        : "OpenCode auto-compaction not configured",
       fix: "Run frugal setup",
     });
 

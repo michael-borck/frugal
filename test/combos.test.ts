@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildCombos, allSnapshots } from "../src/core/combos.js";
+import { buildCombos, allSnapshots, recommendedContextLimit } from "../src/core/combos.js";
 import { defaultUserConfig } from "../src/core/config.js";
 import type { ModelCandidate, ResultsFile, ScoreEntry } from "../src/core/types.js";
 import {
@@ -81,6 +81,41 @@ describe("buildCombos", () => {
   });
 });
 
+describe("recommendedContextLimit", () => {
+  it("uses the smallest cloud member's window", () => {
+    const built = buildCombos({
+      candidates: [
+        candidate({ id: "big", contextTokens: 1_000_000 }),
+        candidate({ id: "small", contextTokens: 131_072 }),
+      ],
+      user: defaultUserConfig(),
+    });
+    expect(recommendedContextLimit(built.free)).toBe(131_072);
+  });
+
+  it("ignores local members when a cloud member exists", () => {
+    const built = buildCombos({
+      candidates: [
+        candidate({ id: "cloud", contextTokens: 200_000 }),
+        candidate({ id: "tiny-local", provider: "local", contextTokens: 8_192 }),
+      ],
+      user: defaultUserConfig(),
+    });
+    expect(recommendedContextLimit(built.free)).toBe(200_000);
+  });
+
+  it("uses the smallest member for a local-only combo", () => {
+    const built = buildCombos({
+      candidates: [
+        candidate({ id: "l1", provider: "local", contextTokens: 16_384 }),
+        candidate({ id: "l2", provider: "local", contextTokens: 8_192 }),
+      ],
+      user: defaultUserConfig(),
+    });
+    expect(recommendedContextLimit(built.free)).toBe(8_192);
+  });
+});
+
 describe("openCode integration", () => {
   let tmp: string;
   let configPath: string;
@@ -116,6 +151,33 @@ describe("openCode integration", () => {
     const backup = await fs.readFile(`${configPath}.frugal-backup`, "utf8");
     expect(backup).toContain("anthropic");
     expect(backup).not.toContain("frugal");
+  });
+
+  it("writes auto-compaction defaults and a declared context limit", async () => {
+    await writeOpenCodeConfig({
+      model: "free-best",
+      contextLimit: 131_072,
+      configPath,
+    });
+    const config = await readOpenCodeConfig(configPath);
+    expect(config?.compaction?.auto).toBe(true);
+    expect(config?.compaction?.buffer).toBe("20%");
+    const modelEntry = (config?.provider?.frugal as { models: Record<string, unknown> }).models[
+      "free-best"
+    ] as { limit?: { context: number; output: number } };
+    expect(modelEntry.limit?.context).toBe(131_072);
+    expect(modelEntry.limit?.output).toBeLessThanOrEqual(131_072);
+  });
+
+  it("keeps a student's existing compaction settings", async () => {
+    await fs.writeFile(
+      configPath,
+      JSON.stringify({ compaction: { auto: false, keep: { tokens: 40000 } } }),
+    );
+    await writeOpenCodeConfig({ configPath });
+    const config = await readOpenCodeConfig(configPath);
+    expect(config?.compaction?.auto).toBe(false);
+    expect(config?.compaction?.keep?.tokens).toBe(40000);
   });
 });
 

@@ -26,11 +26,6 @@ function scoreIndex(results?: MergeInput["results"]): Map<string, ScoreEntry> {
   return map;
 }
 
-function contextFloor(candidate: ModelCandidate): number {
-  if (candidate.provider === "local") return LOCAL_MIN_CONTEXT_TOKENS;
-  return DEFAULT_MIN_CONTEXT_TOKENS;
-}
-
 function passesFilters(
   candidate: ModelCandidate,
   minContextTokens: number,
@@ -39,7 +34,12 @@ function passesFilters(
   if (banned.has(candidate.id)) return "banned";
   if (!candidate.textOutput) return "no-text-output";
   if (!candidate.supportsTools) return "no-tool-calling";
-  const floor = Math.max(minContextTokens, contextFloor(candidate));
+  // Local models use their own lower floor; the cloud minimum and the
+  // instructor's min_context_tokens apply to cloud models only.
+  const floor =
+    candidate.provider === "local"
+      ? LOCAL_MIN_CONTEXT_TOKENS
+      : Math.max(minContextTokens, DEFAULT_MIN_CONTEXT_TOKENS);
   if (candidate.contextTokens < floor) {
     return `context-${candidate.contextTokens}-below-${floor}`;
   }
@@ -143,6 +143,7 @@ export function toComboEntries(
     provider: candidate.provider,
     access: candidate.access,
     score: candidate.score,
+    contextTokens: candidate.contextTokens,
     source:
       candidate.tier != null && candidate.score != null
         ? "bench"

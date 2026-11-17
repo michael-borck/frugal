@@ -2,6 +2,7 @@ import { defaultPaths, loadUserConfig, saveUserConfig, configExists } from "../.
 import { HttpRouterClient } from "../../core/routerClient.js";
 import { HttpRankingSource } from "../../core/rankingSource.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
+import { recommendedContextLimit } from "../../core/combos.js";
 import { applyIntegrations } from "../../core/integrations/index.js";
 import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
 import { loadState, saveState } from "../../core/config.js";
@@ -42,6 +43,8 @@ export const setupCommand: Command = {
     const routerUp = await router.health();
     out(ctx, `9Router: ${routerUp ? `reachable at ${ROUTER_HOST}:${ROUTER_PORT}` : `not reachable at ${ROUTER_HOST}:${ROUTER_PORT}`}`);
 
+    let contextLimit: number | undefined;
+
     if (routerUp) {
       const source = new HttpRankingSource({
         resultsUrl: user.resultsUrl ?? DEFAULT_RESULTS_URL,
@@ -54,17 +57,28 @@ export const setupCommand: Command = {
         for (const combo of composed.combos) {
           out(ctx, `Combo ${combo.name}: ${combo.entries.length} models`);
         }
+        const free = composed.combos.find((c) => c.name === "free-best") ?? composed.combos[0];
+        if (free) contextLimit = recommendedContextLimit(free);
       } else {
         out(ctx, "Could not build combos yet (candidate fetch/registration is a spike item).");
         if (composed.registrationError) out(ctx, `  ${composed.registrationError}`);
       }
     }
 
+    if (contextLimit == null) {
+      const state = await loadState(paths);
+      if (state.lastGoodCombo) contextLimit = recommendedContextLimit(state.lastGoodCombo);
+    }
+
     const applied = await applyIntegrations({
       apiKey: "frugal-local",
       model: "free-best",
+      contextLimit,
     });
     out(ctx, "");
+    if (contextLimit != null) {
+      out(ctx, `Declaring a ${contextLimit}-token context window for free-best so compaction fires early enough.`);
+    }
     for (const result of applied) {
       out(ctx, `[${result.changed ? "wired" : "guide"}] ${result.name}: ${result.detail}`);
     }

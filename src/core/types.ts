@@ -136,6 +136,7 @@ export interface ComboEntry {
   provider: ProviderId;
   access: ModelAccess;
   score?: number;
+  contextTokens?: number;
   source: "bench" | "usage" | "local" | "paid" | "pin";
 }
 

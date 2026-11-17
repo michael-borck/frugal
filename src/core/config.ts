@@ -89,7 +89,20 @@ export async function loadUserConfig(paths: Paths): Promise<UserConfig> {
   const data = await readJson<Record<string, unknown>>(paths.userConfigPath);
   if (!data) return defaultUserConfig();
   assertSchemaVersion(data);
-  return { ...defaultUserConfig(), ...(data as unknown as UserConfig) };
+  const defaults = defaultUserConfig();
+  return {
+    schemaVersion: (data.schema_version as string) ?? defaults.schemaVersion,
+    tier: (data.tier as UserConfig["tier"]) ?? defaults.tier,
+    maxMonthlyUsd: (data.max_monthly_usd as number) ?? defaults.maxMonthlyUsd,
+    pin: (data.pin as string[]) ?? defaults.pin,
+    ban: (data.ban as string[]) ?? defaults.ban,
+    lock: (data.lock as string | null) ?? defaults.lock,
+    localMode: (data.local_mode as UserConfig["localMode"]) ?? defaults.localMode,
+    enabledProviders:
+      (data.enabled_providers as UserConfig["enabledProviders"]) ?? defaults.enabledProviders,
+    picksUrl: data.picks_url as string | undefined,
+    resultsUrl: data.results_url as string | undefined,
+  };
 }
 
 export async function saveUserConfig(paths: Paths, config: UserConfig): Promise<void> {
@@ -112,7 +125,13 @@ export async function loadState(paths: Paths): Promise<RuntimeState> {
   const data = await readJson<Record<string, unknown>>(paths.statePath);
   if (!data) return defaultState();
   assertSchemaVersion(data);
-  return { ...defaultState(), ...(data as unknown as RuntimeState) };
+  const defaults = defaultState();
+  return {
+    schemaVersion: (data.schema_version as string) ?? defaults.schemaVersion,
+    lastGoodCombo: (data.last_good_combo as RuntimeState["lastGoodCombo"]) ?? defaults.lastGoodCombo,
+    lastRefreshAt: (data.last_refresh_at as string | null) ?? defaults.lastRefreshAt,
+    lastFreeModelList: (data.last_free_model_list as string[]) ?? defaults.lastFreeModelList,
+  };
 }
 
 export async function saveState(paths: Paths, state: RuntimeState): Promise<void> {

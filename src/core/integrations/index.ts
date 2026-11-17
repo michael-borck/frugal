@@ -1,5 +1,5 @@
 import type { IntegrationResult } from "./base.js";
-import { writeOpenCodeConfig } from "./opencode.js";
+import { writeOpenCodeConfig, type OpenCodeCompaction } from "./opencode.js";
 import { writePiConfig } from "./pi.js";
 import { mstyGuide, writeMstyGuide } from "./msty.js";
 import { ROUTER_HOST, ROUTER_PORT } from "../types.js";
@@ -21,6 +21,10 @@ export interface ApplyOptions {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
+  /** The combo's minimum context window, declared to the harness. */
+  contextLimit?: number;
+  outputLimit?: number;
+  compaction?: OpenCodeCompaction;
 }
 
 export async function applyIntegrations(options: ApplyOptions = {}): Promise<IntegrationResult[]> {
@@ -30,7 +34,18 @@ export async function applyIntegrations(options: ApplyOptions = {}): Promise<Int
   const model = options.model ?? "free-best";
   const results: IntegrationResult[] = [];
 
-  if (harnesses.opencode) results.push(await writeOpenCodeConfig({ baseUrl, apiKey, model }));
+  if (harnesses.opencode) {
+    results.push(
+      await writeOpenCodeConfig({
+        baseUrl,
+        apiKey,
+        model,
+        contextLimit: options.contextLimit,
+        outputLimit: options.outputLimit,
+        compaction: options.compaction,
+      }),
+    );
+  }
   if (harnesses.pi) results.push(await writePiConfig({ baseUrl, apiKey, model }));
   if (harnesses.msty) results.push(writeMstyGuide({ baseUrl, apiKey, model }));
 
