@@ -79,6 +79,7 @@ describe("runSetup (thin)", () => {
   let ctx: CommandContext;
   let originalHome: string | undefined;
   let originalKey: string | undefined;
+  let originalXdg: string | undefined;
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-setup-"));
@@ -86,13 +87,17 @@ describe("runSetup (thin)", () => {
     await fs.mkdir(path.join(home, ".pi", "agent"), { recursive: true });
     originalHome = process.env.HOME;
     originalKey = process.env.FRUGAL_ROUTER_KEY;
+    originalXdg = process.env.XDG_CONFIG_HOME;
     process.env.HOME = home;
+    process.env.XDG_CONFIG_HOME = path.join(home, ".config");
     delete process.env.FRUGAL_ROUTER_KEY;
     ctx = { paths: pathsFor(dir), json: false };
   });
 
   afterEach(async () => {
     process.env.HOME = originalHome;
+    if (originalXdg == null) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = originalXdg;
     if (originalKey != null) process.env.FRUGAL_ROUTER_KEY = originalKey;
     await fs.rm(dir, { recursive: true, force: true });
   });
