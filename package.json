@@ -1,6 +1,6 @@
 {
   "name": "@michaelborck/frugal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-command installer and updater for a local 9Router with a ranked fallback chain of free, local and optional low-cost models.",
   "license": "MIT",
   "type": "module",
