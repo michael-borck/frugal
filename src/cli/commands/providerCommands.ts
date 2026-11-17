@@ -1,111 +1,48 @@
-import {
-  defaultPaths,
-  loadUserConfig,
-  saveUserConfig,
-  type Paths,
-} from "../../core/config.js";
 import { isProviderId, providerIds, providerInfo } from "../../core/providers.js";
-import { removeProviderKey, setProviderKey } from "../../core/secrets.js";
-import { isValidatableProvider, validateProviderKey } from "../../core/validateKey.js";
-import { makeObservation, recordObservation } from "../../core/reliability.js";
-import type { ProviderId, UserConfig } from "../../core/types.js";
+import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
-import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
-export interface ProviderCommandDeps {
-  prompter: Prompter;
-  paths?: Paths;
-  fetchImpl?: typeof fetch;
-  /** Key supplied non-interactively (FRUGAL_PROVIDER_KEY). */
-  envKey?: string;
+function dashboardUrl(): string {
+  return `http://${ROUTER_HOST}:${ROUTER_PORT}/dashboard`;
 }
 
-function enable(user: UserConfig, id: ProviderId): void {
-  if (!user.enabledProviders.includes(id)) {
-    user.enabledProviders = [...user.enabledProviders, id];
-  }
-}
-
-export async function runAdd(
-  ctx: CommandContext,
-  providerName: string,
-  deps: ProviderCommandDeps,
-): Promise<number> {
-  const paths = deps.paths ?? ctx.paths ?? defaultPaths();
+/**
+ * Providers are connected in 9Router, which also stores their keys. frugal only
+ * points at the right screen; it never prompts for or stores provider keys.
+ */
+export async function runAdd(ctx: CommandContext, providerName: string): Promise<number> {
+  const info = providerInfo(providerName);
   const say = (message: string): void => {
     if (!ctx.json) out(ctx, message);
   };
 
-  const info = providerInfo(providerName);
-  if (!info || !isProviderId(providerName)) {
+  if (!info) {
     say(`Unknown provider: ${providerName}`);
     say(`Known providers: ${providerIds().join(", ")}`);
     jsonOut(ctx, { provider: providerName, ok: false, error: "unknown-provider" });
     return 2;
   }
 
-  const user = await loadUserConfig(paths);
-
-  if (info.auth === "none") {
-    enable(user, info.id);
-    await saveUserConfig(paths, user);
-    say(`${info.label} enabled (no key needed).`);
-    jsonOut(ctx, { provider: info.id, ok: true, enabled: user.enabledProviders });
-    return 0;
-  }
-
-  if (info.auth === "oauth") {
-    say(`${info.label} uses guided OAuth, which is not wired yet. See the provider's own instructions.`);
-    jsonOut(ctx, { provider: info.id, ok: false, error: "oauth-not-wired" });
-    return 1;
-  }
-
-  const prompted = (await deps.prompter.secret(`${info.label} API key:`)).trim();
-  const key = (prompted || (deps.envKey ?? process.env.FRUGAL_PROVIDER_KEY ?? "")).trim();
-  if (!key) {
-    say("No key provided.");
-    say(`In a terminal, run: frugal add ${info.id}`);
-    say("Or set FRUGAL_PROVIDER_KEY for non-interactive use.");
-    jsonOut(ctx, { provider: info.id, ok: false, error: "missing-key" });
-    return 1;
-  }
-
-  if (info.validatable && isValidatableProvider(info.id)) {
-    const result = await validateProviderKey(info.id, key, deps.fetchImpl ?? fetch);
-    await recordObservation(
-      paths,
-      makeObservation({
-        provider: info.id,
-        kind: "key",
-        ok: result.ok,
-        error: result.ok ? undefined : result.detail,
-      }),
-    );
-    if (!result.ok) {
-      say(`${result.detail}. The key was not stored.`);
-      jsonOut(ctx, { provider: info.id, ok: false, error: "invalid-key", detail: result.detail });
-      return 1;
-    }
-    say(`${info.label} key accepted.`);
+  say(`${info.label} is managed by 9Router, not frugal.`);
+  say(`Open ${dashboardUrl()} → Providers, then connect ${info.label}.`);
+  if (info.auth === "key") {
+    say("Paste the provider key on that screen; 9Router stores it, not frugal.");
+  } else if (info.auth === "oauth") {
+    say("This provider uses guided OAuth in 9Router.");
   } else {
-    say(`${info.label} key stored (not validated yet for this provider).`);
+    say("This provider needs no key.");
   }
-
-  await setProviderKey(paths, info.id, key);
-  enable(user, info.id);
-  await saveUserConfig(paths, user);
-
-  say(`${info.label} added. Run frugal refresh to rebuild the combo.`);
-  jsonOut(ctx, { provider: info.id, ok: true, enabled: user.enabledProviders });
+  say("When it is connected, run: frugal verify");
+  jsonOut(ctx, {
+    provider: info.id,
+    managed_by: "9router",
+    dashboard: dashboardUrl(),
+    ok: true,
+  });
   return 0;
 }
 
-export async function runRemove(
-  ctx: CommandContext,
-  providerName: string,
-  pathsInput?: Paths,
-): Promise<number> {
-  const paths = pathsInput ?? ctx.paths ?? defaultPaths();
+export async function runRemove(ctx: CommandContext, providerName: string): Promise<number> {
   const say = (message: string): void => {
     if (!ctx.json) out(ctx, message);
   };
@@ -116,45 +53,31 @@ export async function runRemove(
     return 2;
   }
 
-  const user = await loadUserConfig(paths);
-  const wasEnabled = user.enabledProviders.includes(providerName);
-  user.enabledProviders = user.enabledProviders.filter((id) => id !== providerName);
-  await saveUserConfig(paths, user);
-  const keyRemoved = await removeProviderKey(paths, providerName);
-
-  if (!wasEnabled && !keyRemoved) {
-    say(`${providerName} was not enabled.`);
-  } else {
-    say(`${providerName} removed${keyRemoved ? " and its key deleted" : ""}.`);
-  }
-  jsonOut(ctx, { provider: providerName, ok: true, enabled: user.enabledProviders });
+  say(`${providerName} is managed by 9Router.`);
+  say(`Disconnect it at ${dashboardUrl()} → Providers.`);
+  jsonOut(ctx, {
+    provider: providerName,
+    managed_by: "9router",
+    dashboard: dashboardUrl(),
+    ok: true,
+  });
   return 0;
-}
-
-function makePrompter(ctx: CommandContext): Prompter {
-  const nonInteractive = ctx.json || !process.stdin.isTTY;
-  return nonInteractive ? new DefaultPrompter() : new ReadlinePrompter();
 }
 
 export const addCommand: Command = {
   name: "add",
-  summary: "Guided signup, key test and connection for a provider.",
+  summary: "Point to the 9Router provider screen (keys and connections live in 9Router).",
   group: "Providers",
   async run(ctx: CommandContext, args: string[]) {
     const providerName = args[0];
     if (!providerName) throw new UsageError("frugal add <provider>");
-    const prompter = makePrompter(ctx);
-    try {
-      return await runAdd(ctx, providerName, { prompter });
-    } finally {
-      prompter.close();
-    }
+    return runAdd(ctx, providerName);
   },
 };
 
 export const removeCommand: Command = {
   name: "remove",
-  summary: "Disconnect a provider and delete its key.",
+  summary: "Point to where to disconnect a provider in 9Router.",
   group: "Providers",
   async run(ctx: CommandContext, args: string[]) {
     const providerName = args[0];
