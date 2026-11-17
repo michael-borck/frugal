@@ -130,9 +130,13 @@ Then, with `-b /tmp/9r.cookies`:
 | Delete combo | `DELETE /api/combos/<id>` |
 | Refresh provider catalogs | `POST /api/models/catalog-sync` (status: `GET`) |
 | Test one model | `POST /api/models/test` `{"model":"..."}` |
+| Validate a provider key | `POST /api/providers/validate` `{provider, apiKey, providerSpecificData?}` |
+| Create a connection | `POST /api/providers` `{provider, apiKey, providerSpecificData?}` (409 = already exists) |
 | API keys | `GET/POST /api/keys` |
 
 `/v1/*` (chat, models) still uses the `sk-` key. `/api/*` uses the session cookie. That split is why frugal cannot create combos with the API key alone.
+
+Provider ids confirmed from the registry: `opencode` (noAuth), `openrouter`, `groq`, `cloudflare-ai` (token + `providerSpecificData.accountId`), `kilo-gateway`, `nvidia`, `mistral`, `gemini`. No-auth providers still require a non-empty `apiKey` on the create route, so send a placeholder (e.g. `no-auth`); the transport ignores it.
 
 The `9router` CLI also has an interactive ASCII menu with **Providers**, **Combos**, **API Keys**, **Settings**, and **CLI tools** screens, so the same configuration can be done in the shell without curl.
 

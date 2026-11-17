@@ -168,4 +168,62 @@ describe("RouterSession", () => {
     const session = new RouterSession({ fetchImpl });
     expect((await session.catalogSync()).ok).toBe(true);
   });
+
+  it("validates and creates a provider connection", async () => {
+    const bodies: unknown[] = [];
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/providers/validate") && init?.method === "POST") {
+        bodies.push(JSON.parse(String(init.body)));
+        return response(200, { valid: true });
+      }
+      if (url.endsWith("/api/providers") && init?.method === "POST") {
+        bodies.push(JSON.parse(String(init.body)));
+        return response(201, { connection: { id: "p1" } });
+      }
+      return response(404, {});
+    }) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    expect(await session.validateProvider("openrouter", "sk")).toEqual({
+      ok: true,
+      detail: "key accepted",
+    });
+    expect(await session.createProvider("openrouter", "sk")).toEqual({
+      ok: true,
+      detail: "openrouter connected",
+      already: false,
+    });
+    expect(bodies).toEqual([
+      { provider: "openrouter", apiKey: "sk" },
+      { provider: "openrouter", apiKey: "sk" },
+    ]);
+  });
+
+  it("passes providerSpecificData (Cloudflare account id)", async () => {
+    let body: unknown = null;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).endsWith("/api/providers") && init?.method === "POST") {
+        body = JSON.parse(String(init.body));
+        return response(201, { connection: { id: "p1" } });
+      }
+      return response(404, {});
+    }) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    await session.createProvider("cloudflare-ai", "token", { accountId: "acct" });
+    expect(body).toEqual({
+      provider: "cloudflare-ai",
+      apiKey: "token",
+      providerSpecificData: { accountId: "acct" },
+    });
+  });
+
+  it("treats a 409 as already connected", async () => {
+    const fetchImpl = (async () => response(409, { error: "exists" })) as typeof fetch;
+    const session = new RouterSession({ fetchImpl });
+    expect(await session.createProvider("openrouter", "sk")).toEqual({
+      ok: true,
+      detail: "already connected",
+      already: true,
+    });
+  });
 });

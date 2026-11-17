@@ -15,21 +15,45 @@ import { writePiConfig, PI_PROVIDER_ID } from "../../core/integrations/pi.js";
 import { writeOpenCodeConfig } from "../../core/integrations/opencode.js";
 import { mstyGuide } from "../../core/integrations/msty.js";
 import type { IntegrationResult } from "../../core/integrations/base.js";
-import { providerInfo } from "../../core/providers.js";
-import { ROUTER_HOST, ROUTER_PORT, type ProviderId } from "../../core/types.js";
+import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
 const PROBE_LIMIT = 10;
 
-const GUIDE: Array<{ id: ProviderId; note: string }> = [
-  { id: "opencode-free", note: "no key needed; connect it first" },
-  { id: "openrouter", note: "sign up at openrouter.ai, paste the key in 9Router" },
-  { id: "groq", note: "sign up at console.groq.com, paste the key in 9Router" },
-  { id: "cloudflare-workers-ai", note: "free daily allowance; needs account id + token" },
-  { id: "kilo", note: "free gateway; paste the key in 9Router" },
-  { id: "requesty", note: "free models; paste the key in 9Router" },
-  { id: "local", note: "if Ollama is running, connect http://127.0.0.1:11434/v1 (no key)" },
+interface GuidedProvider {
+  id: string;
+  label: string;
+  auth: "none" | "key" | "cloudflare";
+  keyUrl?: string;
+  note?: string;
+}
+
+const GUIDED_PROVIDERS: GuidedProvider[] = [
+  { id: "opencode", label: "OpenCode Free", auth: "none", note: "no key needed" },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    auth: "key",
+    keyUrl: "https://openrouter.ai/settings/keys",
+  },
+  { id: "groq", label: "Groq", auth: "key", keyUrl: "https://console.groq.com/keys" },
+  {
+    id: "cloudflare-ai",
+    label: "Cloudflare Workers AI",
+    auth: "cloudflare",
+    keyUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    note: "API token + Account ID",
+  },
+  { id: "kilo-gateway", label: "Kilo Gateway", auth: "key", note: "free models" },
+  { id: "nvidia", label: "NVIDIA NIM", auth: "key", note: "free tier" },
+  { id: "mistral", label: "Mistral", auth: "key", keyUrl: "https://console.mistral.ai" },
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    auth: "key",
+    keyUrl: "https://aistudio.google.com/apikey",
+  },
 ];
 
 export interface SetupDeps {
@@ -44,6 +68,86 @@ export interface SetupDeps {
 
 function routerBase(): string {
   return `http://${ROUTER_HOST}:${ROUTER_PORT}`;
+}
+
+async function addProviders(
+  session: SessionApi,
+  prompter: Prompter,
+  say: (message: string) => void,
+): Promise<void> {
+  const added = new Set<string>();
+  for (;;) {
+    const choice = await prompter.select<string>(
+      "Add a free provider to 9Router, or finish:",
+      [
+        ...GUIDED_PROVIDERS.map((provider) => ({
+          label: `${provider.label}${added.has(provider.id) ? " (added)" : ""}${
+            provider.note ? ` — ${provider.note}` : ""
+          }`,
+          value: provider.id,
+        })),
+        { label: "Done adding providers", value: "done" },
+      ],
+      "done",
+    );
+    if (choice === "done") return;
+
+    const provider = GUIDED_PROVIDERS.find((entry) => entry.id === choice);
+    if (!provider) continue;
+    if (provider.keyUrl) say(`Get a key: ${provider.keyUrl}`);
+
+    if (provider.auth === "none") {
+      const result = await session.createProvider(provider.id, "no-auth");
+      if (result.ok) {
+        added.add(provider.id);
+        say(`${provider.label} connected${result.already ? " (already)" : ""}.`);
+      } else {
+        say(`Could not connect ${provider.label}: ${result.detail}. Add it in the dashboard.`);
+      }
+      continue;
+    }
+
+    if (provider.auth === "cloudflare") {
+      const token = (await prompter.secret("Cloudflare API token:")).trim();
+      const accountId = (await prompter.text("Cloudflare Account ID:")).trim();
+      if (!token || !accountId) {
+        say("Skipped Cloudflare (needs both the API token and the Account ID).");
+        continue;
+      }
+      const data = { accountId };
+      const validation = await session.validateProvider(provider.id, token, data);
+      if (!validation.ok) {
+        say(`Cloudflare: ${validation.detail}`);
+        continue;
+      }
+      const result = await session.createProvider(provider.id, token, data);
+      if (result.ok) {
+        added.add(provider.id);
+        say(`Cloudflare connected${result.already ? " (already)" : ""}.`);
+      } else {
+        say(`Could not connect Cloudflare: ${result.detail}. Add it in the dashboard.`);
+      }
+      continue;
+    }
+
+    const key = (await prompter.secret(`${provider.label} API key:`)).trim();
+    if (!key) {
+      say("Skipped.");
+      continue;
+    }
+    const validation = await session.validateProvider(provider.id, key);
+    if (!validation.ok) {
+      say(`${provider.label}: ${validation.detail}`);
+      continue;
+    }
+    const result = await session.createProvider(provider.id, key);
+    if (result.ok) {
+      added.add(provider.id);
+      say(`${provider.label} connected${result.already ? " (already)" : ""}.`);
+    } else {
+      say(`Could not connect ${provider.label}: ${result.detail}. Add it in the dashboard.`);
+    }
+  }
 }
 
 export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<number> {
@@ -86,19 +190,6 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     }
   }
 
-  say("Connect free providers in 9Router (keys are stored in 9Router, not frugal):");
-  for (const entry of GUIDE) {
-    const label = providerInfo(entry.id)?.label ?? entry.id;
-    say(`  - ${label}: ${entry.note}`);
-  }
-  say(`  Dashboard: ${routerBase()}/dashboard → Providers`);
-  const local = await detectLocal(fetchImpl);
-  if (local.length > 0) {
-    say(`  Local server detected: ${local.map((probe) => probe.engine).join(", ")}.`);
-  }
-  await prompter.confirm("Have you connected at least one provider? (You can add more later)", true);
-  say("");
-
   let session: SessionApi | undefined = deps.session;
   let key = (process.env.FRUGAL_ROUTER_KEY ?? "").trim();
 
@@ -114,12 +205,37 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
           session = candidate;
           say("Logged in to 9Router.");
         } else {
-          say(`Could not log in (${login.detail}). Falling back to an API key.`);
+          say(`Could not log in (${login.detail}). Falling back to the browser/API-key path.`);
         }
       } catch (error) {
-        say(`Could not log in: ${(error as Error).message}. Falling back to an API key.`);
+        say(`Could not log in: ${(error as Error).message}. Falling back to the browser/API-key path.`);
       }
     }
+  }
+  say("");
+
+  if (session) {
+    say("Add free providers now; keys go straight to 9Router, not frugal.");
+    await addProviders(session, prompter, say);
+  } else {
+    say("Connect free providers in 9Router (keys are stored in 9Router, not frugal):");
+    for (const provider of GUIDED_PROVIDERS) {
+      const link = provider.keyUrl ? ` — ${provider.keyUrl}` : "";
+      say(`  - ${provider.label}${provider.note ? ` (${provider.note})` : ""}${link}`);
+    }
+    say(`  Dashboard: ${routerBase()}/dashboard → Providers`);
+    await prompter.confirm("Have you connected at least one provider? (You can add more later)", true);
+  }
+
+  say("");
+  say(
+    "Paid plans (OpenCode Go, Z.ai, ClinePass): connect them in 9Router's dashboard and make your own budget-best combo. frugal stays free-only.",
+  );
+  say("");
+
+  const local = await detectLocal(fetchImpl);
+  if (local.length > 0) {
+    say(`Local server detected: ${local.map((probe) => probe.engine).join(", ")}. It stays available to Pi.`);
   }
 
   let catalogSynced = false;
@@ -190,28 +306,6 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   }
   const combo = suggestedCombo(results, 10);
 
-  const harness = await prompter.select<"pi" | "opencode" | "both" | "msty">(
-    "Which harness should frugal configure?",
-    [
-      { label: "Pi (recommended for older laptops)", value: "pi" },
-      { label: "OpenCode", value: "opencode" },
-      { label: "Both", value: "both" },
-      { label: "Msty guide only", value: "msty" },
-    ],
-    "pi",
-  );
-
-  const applied: IntegrationResult[] = [];
-  const baseUrl = `${routerBase()}/v1`;
-  if (harness === "pi" || harness === "both") {
-    applied.push(
-      await writePiConfig({ baseUrl, apiKey: key, model: "free-best", models: combo }),
-    );
-  }
-  if (harness === "opencode" || harness === "both") {
-    applied.push(await writeOpenCodeConfig({ baseUrl, apiKey: key, model: "free-best" }));
-  }
-
   let comboApplied = false;
   if (combo.length > 0 && session) {
     try {
@@ -240,6 +334,28 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     }
   } else {
     say("No models verified yet. Connect providers, then run frugal verify to build the order.");
+  }
+
+  const harness = await prompter.select<"pi" | "opencode" | "both" | "msty">(
+    "Which harness should frugal configure?",
+    [
+      { label: "Pi (recommended for older laptops)", value: "pi" },
+      { label: "OpenCode", value: "opencode" },
+      { label: "Both", value: "both" },
+      { label: "Msty guide only", value: "msty" },
+    ],
+    "pi",
+  );
+
+  const applied: IntegrationResult[] = [];
+  const baseUrl = `${routerBase()}/v1`;
+  if (harness === "pi" || harness === "both") {
+    applied.push(
+      await writePiConfig({ baseUrl, apiKey: key, model: "free-best", models: combo }),
+    );
+  }
+  if (harness === "opencode" || harness === "both") {
+    applied.push(await writeOpenCodeConfig({ baseUrl, apiKey: key, model: "free-best" }));
   }
 
   say("");

@@ -15,10 +15,11 @@ class ScriptedPrompter implements Prompter {
       confirms?: boolean[];
       secrets?: string[];
       selects?: string[];
+      texts?: string[];
     } = {},
   ) {}
   text(_question: string, options?: { default?: string }): Promise<string> {
-    return Promise.resolve(options?.default ?? "");
+    return Promise.resolve(this.answers.texts?.shift() ?? options?.default ?? "");
   }
   secret(): Promise<string> {
     return Promise.resolve(this.answers.secrets?.shift() ?? "");
@@ -105,6 +106,22 @@ function sessionFetch(): typeof fetch {
   }) as typeof fetch;
 }
 
+function makeSession(overrides: Partial<SessionApi> = {}): SessionApi {
+  return {
+    login: async () => ({ ok: true, detail: "" }),
+    status: async () => true,
+    catalogSync: async () => ({ ok: true, detail: "" }),
+    getApiKey: async () => "sk-injected",
+    listModels: async () => ["cf/a", "free-best"],
+    listCombos: async () => [],
+    upsertCombo: async () => ({ created: false, id: "c1" }),
+    ensureFallbackStrategy: async () => true,
+    validateProvider: async () => ({ ok: true, detail: "key accepted" }),
+    createProvider: async () => ({ ok: true, detail: "connected", already: false }),
+    ...overrides,
+  };
+}
+
 describe("runSetup (thin)", () => {
   let dir: string;
   let home: string;
@@ -140,11 +157,11 @@ describe("runSetup (thin)", () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 
-  it("logs in, refreshes catalogs, writes free-best, and wires Pi", async () => {
+  it("logs in, adds no providers, applies free-best, and wires Pi", async () => {
     const prompter = new ScriptedPrompter({
-      confirms: [true, true],
+      confirms: [true],
       secrets: ["dashboard-pw"],
-      selects: ["pi"],
+      selects: ["done", "pi"],
     });
     const code = await runSetup(ctx, {
       prompter,
@@ -163,6 +180,60 @@ describe("runSetup (thin)", () => {
     expect(prompter.infos.join("\n")).toMatch(/Updated free-best/);
   });
 
+  it("adds an API-key provider through the session", async () => {
+    const calls: string[] = [];
+    const session = makeSession({
+      validateProvider: async (provider, key) => {
+        calls.push(`validate:${provider}:${key}`);
+        return { ok: true, detail: "key accepted" };
+      },
+      createProvider: async (provider, key) => {
+        calls.push(`create:${provider}:${key}`);
+        return { ok: true, detail: "connected", already: false };
+      },
+    });
+    const prompter = new ScriptedPrompter({
+      confirms: [false],
+      secrets: ["sk-or"],
+      selects: ["openrouter", "done", "pi"],
+    });
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session,
+    });
+    expect(code).toBe(0);
+    expect(calls).toContain("validate:openrouter:sk-or");
+    expect(calls).toContain("create:openrouter:sk-or");
+  });
+
+  it("prompts for both Cloudflare values", async () => {
+    let createdData: Record<string, unknown> | undefined;
+    const session = makeSession({
+      createProvider: async (provider, _key, data) => {
+        if (provider === "cloudflare-ai") createdData = data;
+        return { ok: true, detail: "connected", already: false };
+      },
+    });
+    const prompter = new ScriptedPrompter({
+      confirms: [false],
+      secrets: ["cf-token"],
+      texts: ["acct-123"],
+      selects: ["cloudflare-ai", "done", "pi"],
+    });
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session,
+    });
+    expect(code).toBe(0);
+    expect(createdData).toEqual({ accountId: "acct-123" });
+  });
+
   it("falls back to an API key when no session is used", async () => {
     process.env.FRUGAL_ROUTER_KEY = "sk-router";
     const prompter = new ScriptedPrompter({ confirms: [true, false], selects: ["opencode"] });
@@ -178,41 +249,6 @@ describe("runSetup (thin)", () => {
     );
     expect(config.provider.router9.options.apiKey).toBe("sk-router");
     expect(config.model).toBe("router9/free-best");
-  });
-
-  it("uses an injected session and applies the combo", async () => {
-    const calls: string[] = [];
-    const session: SessionApi = {
-      login: async () => ({ ok: true, detail: "" }),
-      status: async () => true,
-      catalogSync: async () => {
-        calls.push("catalogSync");
-        return { ok: true, detail: "" };
-      },
-      getApiKey: async () => "sk-injected",
-      listModels: async () => ["cf/a", "free-best"],
-      listCombos: async () => [],
-      upsertCombo: async (name, models) => {
-        calls.push(`upsert:${name}:${models.join(",")}`);
-        return { created: false, id: "c1" };
-      },
-      ensureFallbackStrategy: async (name) => {
-        calls.push(`strategy:${name}`);
-        return true;
-      },
-    };
-    const prompter = new ScriptedPrompter({ confirms: [true, true], selects: ["pi"] });
-    const code = await runSetup(ctx, {
-      prompter,
-      paths: ctx.paths,
-      fetchImpl: fakeRouter(),
-      detectLocal: async () => [],
-      session,
-    });
-    expect(code).toBe(0);
-    expect(calls).toContain("catalogSync");
-    expect(calls).toContain("upsert:free-best:cf/a");
-    expect(calls).toContain("strategy:free-best");
   });
 
   it("returns an error when there are no credentials", async () => {

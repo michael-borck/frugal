@@ -16,6 +16,16 @@ export interface SessionApi {
   listCombos(): Promise<ComboRecord[]>;
   upsertCombo(name: string, models: string[]): Promise<{ created: boolean; id: string }>;
   ensureFallbackStrategy(name: string): Promise<boolean>;
+  validateProvider(
+    provider: string,
+    apiKey: string,
+    providerSpecificData?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; detail: string }>;
+  createProvider(
+    provider: string,
+    apiKey: string,
+    providerSpecificData?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; detail: string; already: boolean }>;
 }
 
 export interface SessionOptions {
@@ -188,5 +198,39 @@ export class RouterSession implements SessionApi {
     });
     if (!patch.ok) throw new Error(`update strategy: ${await this.detail(patch)}`);
     return true;
+  }
+
+  async validateProvider(
+    provider: string,
+    apiKey: string,
+    providerSpecificData?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; detail: string }> {
+    const response = await this.request("/api/providers/validate", {
+      method: "POST",
+      body: JSON.stringify({ provider, apiKey, providerSpecificData }),
+    });
+    if (!response.ok) return { ok: false, detail: await this.detail(response) };
+    const body = (await response.json()) as { valid?: unknown; error?: unknown };
+    if (body.valid === true) return { ok: true, detail: "key accepted" };
+    return {
+      ok: false,
+      detail: typeof body.error === "string" ? body.error : "key rejected",
+    };
+  }
+
+  async createProvider(
+    provider: string,
+    apiKey: string,
+    providerSpecificData?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; detail: string; already: boolean }> {
+    const response = await this.request("/api/providers", {
+      method: "POST",
+      body: JSON.stringify({ provider, apiKey, providerSpecificData }),
+    });
+    if (response.status === 409) {
+      return { ok: true, detail: "already connected", already: true };
+    }
+    if (!response.ok) return { ok: false, detail: await this.detail(response), already: false };
+    return { ok: true, detail: `${provider} connected`, already: false };
   }
 }

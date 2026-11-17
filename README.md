@@ -1,6 +1,6 @@
 # frugal
 
-One command to a working, auto-failover AI setup. frugal is a thin, opinionated installer/configurator for a local **9Router**: it starts 9Router, guides the free-provider connections (keys stay in 9Router), verifies which models actually answer, prints the `free-best` order, and wires the student's harness.
+One command to a working, auto-failover AI setup. frugal is a thin, opinionated installer/configurator for a local **9Router**: it starts 9Router, walks the student through adding free providers (keys go straight to 9Router), verifies which models actually answer, applies the `free-best` combo, and wires the harness.
 
 Harness support: **Pi is the recommended default** — lightweight, which matters on older student laptops — and frugal adds a `9router` provider to Pi's `~/.pi/agent/models.json` without touching the student's existing Ollama or shared-server providers. **OpenCode** is supported when the machine can handle it (provider + compaction). **Msty.ai** is a guided paste.
 
@@ -8,7 +8,7 @@ frugal never sits in the request path. Once configured, the student's tools talk
 
 **Scope:** frugal is deliberately thin — an opinionated installer/configurator for 9Router, not a router. Provider keys and connections live in 9Router. Power users can configure 9Router directly and ignore frugal; frugal must never get in the way. **frugal-bench is retired**; the order comes from the instructor's `picks.json` plus `frugal verify` and the reliability ledger.
 
-> Status: early build. Working now: `setup` (start 9Router, provider guide, dashboard login, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: non-interactive provisioning of the dashboard password and provider registration via API. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
+> Status: early build. Working now: `setup` (start 9Router, dashboard login, guided provider add via 9Router, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: OAuth provider connections (browser) and non-interactive dashboard-password provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
 
 ## Requirements
 
@@ -75,6 +75,12 @@ frugal verify --provider cf --limit 5
 ```
 
 Probing spends a small amount of quota (one token per model), so the default is a limited spread. The dashboard password is held in memory for setup only; the created/reused `sk-` key is what the harness configs use.
+
+## Adding providers
+
+`frugal setup` can add free providers for you through 9Router's API: OpenCode Free (no key), OpenRouter, Groq, Cloudflare (API token + Account ID), Kilo, NVIDIA, Mistral and Gemini. It asks for the key, validates it (`/api/providers/validate`), creates the connection (`/api/providers`) and stores nothing locally; the key lives in 9Router. OAuth providers (Kiro, Gemini CLI, Copilot) still use 9Router's browser flow.
+
+Paid plans are out of scope: connect OpenCode Go, Z.ai or ClinePass in 9Router's dashboard and create your own `budget-best` combo. frugal stays free-only.
 
 ## Development
 
