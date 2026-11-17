@@ -37,11 +37,17 @@ export interface ReliabilitySummary {
 }
 
 export const OBSERVATIONS_FILE = "observations.jsonl";
+export const OBSERVATION_RETENTION_DAYS = 90;
+const PRUNE_MARKER = "observations.pruned";
 const EWMA_ALPHA = 0.2;
 const MIN_SAMPLES_FOR_SIGNAL = 3;
 
 function observationsPath(paths: Paths): string {
   return path.join(paths.configDir, OBSERVATIONS_FILE);
+}
+
+function pruneMarkerPath(paths: Paths): string {
+  return path.join(paths.configDir, PRUNE_MARKER);
 }
 
 export function makeObservation(
@@ -53,6 +59,67 @@ export function makeObservation(
 export async function recordObservation(paths: Paths, observation: Observation): Promise<void> {
   await fs.mkdir(paths.configDir, { recursive: true });
   await fs.appendFile(observationsPath(paths), `${JSON.stringify(observation)}\n`, "utf8");
+  await maybePrune(paths);
+}
+
+/**
+ * Drop observations older than the retention window (default 90 days) and any
+ * corrupt lines. Returns how many lines were removed.
+ */
+export async function pruneObservations(
+  paths: Paths,
+  retentionDays = OBSERVATION_RETENTION_DAYS,
+  now: Date = new Date(),
+): Promise<number> {
+  const file = observationsPath(paths);
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
+
+  const cutoff = now.getTime() - retentionDays * 86_400_000;
+  const lines = raw.split("\n");
+  const kept: string[] = [];
+  let removed = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as Observation;
+      if (typeof parsed.provider === "string" && typeof parsed.ok === "boolean") {
+        const ts = Date.parse(parsed.ts);
+        if (Number.isFinite(ts) && ts >= cutoff) {
+          kept.push(JSON.stringify(parsed));
+          continue;
+        }
+      }
+      removed += 1;
+    } catch {
+      removed += 1;
+    }
+  }
+
+  if (removed === 0) return 0;
+  const tmp = `${file}.${process.pid}.tmp`;
+  await fs.writeFile(tmp, kept.length > 0 ? `${kept.join("\n")}\n` : "", "utf8");
+  await fs.rename(tmp, file);
+  return removed;
+}
+
+/** Prune at most once per UTC day, tracked by a small marker file. */
+async function maybePrune(paths: Paths, now: Date = new Date()): Promise<void> {
+  const today = now.toISOString().slice(0, 10);
+  try {
+    const last = (await fs.readFile(pruneMarkerPath(paths), "utf8")).trim();
+    if (last === today) return;
+  } catch {
+    // No marker yet: prune below.
+  }
+  await pruneObservations(paths, OBSERVATION_RETENTION_DAYS, now);
+  await fs.writeFile(pruneMarkerPath(paths), today, "utf8");
 }
 
 export async function readObservations(

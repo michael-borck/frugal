@@ -48,7 +48,7 @@ Every command accepts `--json` where it prints data, so pilot results can be col
 - `user.json` — the student's intent: tier, cap, pins, bans, lock, local mode, enabled providers, and the hosted ranking URLs.
 - `state.json` — frugal-owned runtime state: the last good combo and refresh time. (Cooldowns and quota belong to 9Router, not here.)
 - `secrets.json` — provider keys, mode `0600`, never written to any harness config.
-- `observations.jsonl` — a local reliability ledger: timestamped pass/fail and latency per provider/model (no prompts, no keys). Summarised by `frugal reliability` and used as a ranking tiebreak.
+- `observations.jsonl` — a local reliability ledger: timestamped pass/fail and latency per provider/model (no prompts, no keys). Kept for 90 days, pruned at most once a day. Summarised by `frugal reliability` and used as a ranking tiebreak.
 - All live under the OS app-support directory (`FRUGAL_HOME` overrides it for testing) and carry a `schema_version`.
 
 ## Ranking sources

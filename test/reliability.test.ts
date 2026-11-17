@@ -6,6 +6,7 @@ import type { Paths } from "../src/core/config.js";
 import {
   loadReliability,
   makeObservation,
+  pruneObservations,
   readObservations,
   recordObservation,
   reliabilityMap,
@@ -104,5 +105,28 @@ describe("reliability ledger", () => {
     await recordObservation(paths, makeObservation({ provider: "local", model: "ollama", kind: "probe", ok: true }));
     const summary = await loadReliability(paths);
     expect(summary.entries.length).toBeGreaterThan(0);
+  });
+
+  it("prunes observations older than the retention window and drops corrupt lines", async () => {
+    const now = new Date("2026-11-17T12:00:00Z");
+    const recent = new Date(now.getTime() - 10 * 86_400_000).toISOString();
+    const old = new Date(now.getTime() - 120 * 86_400_000).toISOString();
+    const file = path.join(dir, "observations.jsonl");
+    await fs.writeFile(
+      file,
+      [
+        JSON.stringify({ ts: old, provider: "openrouter", kind: "request", ok: false }),
+        JSON.stringify({ ts: recent, provider: "openrouter", kind: "request", ok: true }),
+        "garbage",
+        "",
+      ].join("\n"),
+    );
+
+    const removed = await pruneObservations(paths, 90, now);
+    expect(removed).toBe(2); // the old line and the corrupt line
+
+    const remaining = await readObservations(paths);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.ts).toBe(recent);
   });
 });
