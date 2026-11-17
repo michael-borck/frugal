@@ -25,6 +25,7 @@ import {
 import { addCommand, removeCommand } from "./commands/providerCommands.js";
 import { rankingsCommand } from "./commands/rankings.js";
 import { reliabilityCommand } from "./commands/reliability.js";
+import { guideCommand } from "./commands/guide.js";
 
 function version(): string {
   try {
@@ -54,6 +55,7 @@ const COMMANDS: Command[] = [
   tierCommand,
   localCommand,
   providersCommand,
+  guideCommand,
   addCommand,
   removeCommand,
   rankingsCommand,

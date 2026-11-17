@@ -16,45 +16,16 @@ import { writeOpenCodeConfig } from "../../core/integrations/opencode.js";
 import { mstyGuide } from "../../core/integrations/msty.js";
 import type { IntegrationResult } from "../../core/integrations/base.js";
 import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
+import {
+  PROVIDER_GUIDE,
+  credentialsFor,
+  guideFor,
+  loadProviderKeys,
+} from "../../core/providerGuide.js";
 import { type Command, type CommandContext, jsonOut, UsageError } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
 const PROBE_LIMIT = 10;
-
-interface GuidedProvider {
-  id: string;
-  label: string;
-  auth: "none" | "key" | "cloudflare";
-  keyUrl?: string;
-  note?: string;
-}
-
-const GUIDED_PROVIDERS: GuidedProvider[] = [
-  { id: "opencode", label: "OpenCode Free", auth: "none", note: "no key needed" },
-  {
-    id: "openrouter",
-    label: "OpenRouter",
-    auth: "key",
-    keyUrl: "https://openrouter.ai/settings/keys",
-  },
-  { id: "groq", label: "Groq", auth: "key", keyUrl: "https://console.groq.com/keys" },
-  {
-    id: "cloudflare-ai",
-    label: "Cloudflare Workers AI",
-    auth: "cloudflare",
-    keyUrl: "https://dash.cloudflare.com/profile/api-tokens",
-    note: "API token + Account ID",
-  },
-  { id: "kilo-gateway", label: "Kilo Gateway", auth: "key", note: "free models" },
-  { id: "nvidia", label: "NVIDIA NIM", auth: "key", note: "free tier" },
-  { id: "mistral", label: "Mistral", auth: "key", keyUrl: "https://console.mistral.ai" },
-  {
-    id: "gemini",
-    label: "Google Gemini",
-    auth: "key",
-    keyUrl: "https://aistudio.google.com/apikey",
-  },
-];
 
 export interface SetupDeps {
   prompter: Prompter;
@@ -68,6 +39,9 @@ export interface SetupDeps {
   nonInteractive?: boolean;
   harness?: "pi" | "opencode" | "both" | "msty" | "none";
   verify?: boolean;
+  /** Provider ids to add unattended, with keys resolved from env or a keys file. */
+  providers?: string[];
+  providerKeys?: Map<string, string>;
 }
 
 function routerBase(): string {
@@ -84,7 +58,7 @@ async function addProviders(
     const choice = await prompter.select<string>(
       "Add a free provider to 9Router, or finish:",
       [
-        ...GUIDED_PROVIDERS.map((provider) => ({
+        ...PROVIDER_GUIDE.map((provider) => ({
           label: `${provider.label}${added.has(provider.id) ? " (added)" : ""}${
             provider.note ? ` — ${provider.note}` : ""
           }`,
@@ -96,7 +70,7 @@ async function addProviders(
     );
     if (choice === "done") return;
 
-    const provider = GUIDED_PROVIDERS.find((entry) => entry.id === choice);
+    const provider = PROVIDER_GUIDE.find((entry) => entry.id === choice);
     if (!provider) continue;
     if (provider.keyUrl) say(`Get a key: ${provider.keyUrl}`);
 
@@ -152,6 +126,62 @@ async function addProviders(
       say(`Could not connect ${provider.label}: ${result.detail}. Add it in the dashboard.`);
     }
   }
+}
+
+async function addProvidersFromKeys(
+  session: SessionApi,
+  providerIds: string[],
+  keys: Map<string, string>,
+  say: (message: string) => void,
+): Promise<string[]> {
+  const added: string[] = [];
+  for (const rawId of providerIds) {
+    const guide = guideFor(rawId);
+    if (!guide) {
+      say(`Unknown provider: ${rawId}`);
+      continue;
+    }
+    const credentials = credentialsFor(guide, keys);
+    if (credentials.missing.length > 0) {
+      say(`Skipping ${guide.label}: set ${credentials.missing.join(" and ")}.`);
+      continue;
+    }
+    if (guide.auth === "none") {
+      const result = await session.createProvider(guide.id, "no-auth");
+      if (result.ok) {
+        added.push(guide.id);
+        say(`${guide.label} connected${result.already ? " (already)" : ""}.`);
+      } else {
+        say(`Could not connect ${guide.label}: ${result.detail}`);
+      }
+      continue;
+    }
+    const providerSpecificData =
+      guide.auth === "cloudflare" && credentials.accountId
+        ? { accountId: credentials.accountId }
+        : undefined;
+    const validation = await session.validateProvider(
+      guide.id,
+      credentials.apiKey!,
+      providerSpecificData,
+    );
+    if (!validation.ok) {
+      say(`${guide.label}: ${validation.detail}`);
+      continue;
+    }
+    const result = await session.createProvider(
+      guide.id,
+      credentials.apiKey!,
+      providerSpecificData,
+    );
+    if (result.ok) {
+      added.push(guide.id);
+      say(`${guide.label} connected${result.already ? " (already)" : ""}.`);
+    } else {
+      say(`Could not connect ${guide.label}: ${result.detail}`);
+    }
+  }
+  return added;
 }
 
 export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<number> {
@@ -229,16 +259,35 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   }
   say("");
 
+  const addedProviders: string[] = [];
+  if (deps.providers && deps.providers.length > 0) {
+    if (session) {
+      say(`Adding providers from keys: ${deps.providers.join(", ")}`);
+      addedProviders.push(
+        ...(await addProvidersFromKeys(
+          session,
+          deps.providers,
+          deps.providerKeys ?? new Map(),
+          say,
+        )),
+      );
+    } else {
+      say("Provider flags need a dashboard session; set FRUGAL_ROUTER_PASSWORD.");
+    }
+  }
+
   if (session) {
     if (nonInteractive) {
-      say("Skipping provider setup (non-interactive). Add providers in 9Router, then re-run.");
+      if (!deps.providers || deps.providers.length === 0) {
+        say("Skipping provider setup (non-interactive). Add providers in 9Router, then re-run.");
+      }
     } else {
       say("Add free providers now; keys go straight to 9Router, not frugal.");
       await addProviders(session, prompter, say);
     }
   } else {
     say("Connect free providers in 9Router (keys are stored in 9Router, not frugal):");
-    for (const provider of GUIDED_PROVIDERS) {
+    for (const provider of PROVIDER_GUIDE) {
       const link = provider.keyUrl ? ` — ${provider.keyUrl}` : "";
       say(`  - ${provider.label}${provider.note ? ` (${provider.note})` : ""}${link}`);
     }
@@ -416,6 +465,7 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     session: session != null,
     catalog_synced: catalogSynced,
     combo_applied: comboApplied,
+    providers_added: addedProviders,
     providers: prefixes,
     models: ids.length,
     verified: results.filter((result) => result.ok).map((result) => result.id),
@@ -430,11 +480,16 @@ interface SetupFlags {
   yes: boolean;
   verify: boolean;
   harness?: "pi" | "opencode" | "both" | "msty" | "none";
+  providers?: string[];
+  keysFile?: string;
 }
 
 function parseSetupFlags(args: string[]): SetupFlags {
   const flags: SetupFlags = { yes: false, verify: false };
   const harnesses = new Set(["pi", "opencode", "both", "msty", "none"]);
+  const addProviders = (value: string): void => {
+    flags.providers = [...(flags.providers ?? []), ...value.split(",").map((entry) => entry.trim()).filter(Boolean)];
+  };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
     if (arg === "--yes" || arg === "-y") {
@@ -461,6 +516,26 @@ function parseSetupFlags(args: string[]): SetupFlags {
       flags.harness = value as SetupFlags["harness"];
       continue;
     }
+    if (arg === "--provider" || arg === "--providers") {
+      const value = args[++index];
+      if (!value) throw new UsageError("--provider needs an id, e.g. openrouter");
+      addProviders(value);
+      continue;
+    }
+    if (arg.startsWith("--provider=") || arg.startsWith("--providers=")) {
+      addProviders(arg.slice(arg.indexOf("=") + 1));
+      continue;
+    }
+    if (arg === "--keys-file") {
+      const value = args[++index];
+      if (!value) throw new UsageError("--keys-file needs a path");
+      flags.keysFile = value;
+      continue;
+    }
+    if (arg.startsWith("--keys-file=")) {
+      flags.keysFile = arg.slice("--keys-file=".length);
+      continue;
+    }
     throw new UsageError(`unexpected argument: ${arg}`);
   }
   return flags;
@@ -474,11 +549,21 @@ export const setupCommand: Command = {
     const flags = parseSetupFlags(args);
     const nonInteractive = flags.yes || ctx.json || !process.stdin.isTTY;
     const prompter: Prompter = nonInteractive ? new DefaultPrompter() : new ReadlinePrompter();
+    let providerKeys: Map<string, string> | undefined;
+    if (flags.providers && flags.providers.length > 0) {
+      try {
+        providerKeys = loadProviderKeys(flags.keysFile);
+      } catch (error) {
+        throw new UsageError((error as Error).message);
+      }
+    }
     const deps: SetupDeps = {
       prompter,
       nonInteractive,
       harness: flags.harness,
       verify: flags.verify,
+      providers: flags.providers,
+      providerKeys,
     };
     if (!ctx.json) {
       deps.routerManager = new RouterManager({ configDir: ctx.paths.configDir });

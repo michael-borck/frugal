@@ -39,6 +39,7 @@ frugal setup
 | `frugal tier free\|budget` | Switch tier |
 | `frugal local mode fallback\|first\|only` | Set local model behaviour |
 | `frugal providers` | List the providers 9Router has connected (from its model list) |
+| `frugal guide providers` | Thin per-provider guide: signup, key page, env var, steps |
 | `frugal add <provider>` / `frugal remove <provider>` | Point to 9Router's provider screen; keys and connections live in 9Router |
 | `frugal rankings` | Configure optional hosted `picks.json`, `results.json`, `usage.json`, `catalog.json` URLs |
 | `frugal reliability` | Show observed success and latency per provider/model over time |
@@ -82,7 +83,36 @@ Unattended: `frugal setup --yes --harness pi|opencode|both|msty|none [--verify]`
 
 `frugal setup` can add free providers for you through 9Router's API: OpenCode Free (no key), OpenRouter, Groq, Cloudflare (API token + Account ID), Kilo, NVIDIA, Mistral and Gemini. It asks for the key, validates it (`/api/providers/validate`), creates the connection (`/api/providers`) and stores nothing locally; the key lives in 9Router. OAuth providers (Kiro, Gemini CLI, Copilot) still use 9Router's browser flow.
 
-Paid plans are out of scope: connect OpenCode Go, Z.ai or ClinePass in 9Router's dashboard and create your own `budget-best` combo. frugal stays free-only.
+Thin per-provider guide (one maintained data source, not a doc per provider):
+
+```sh
+frugal guide providers          # signup link, where the key is, env var, 2-3 steps
+frugal guide providers --json
+```
+
+Unattended, from environment variables or a keys file:
+
+```sh
+export OPENROUTER_API_KEY=...
+export GROQ_API_KEY=...
+export CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=...
+frugal setup --yes --provider openrouter,groq --harness pi
+
+# or keep them in a file (one KEY=VALUE per line; env still wins)
+frugal setup --yes --provider openrouter,cloudflare-ai --keys-file ~/.config/frugal/providers.env
+```
+
+Env names are in `frugal guide providers` (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, `KILO_API_KEY`, `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`). `--provider opencode` needs no key.
+
+### Budget tier (optional)
+
+Paid plans are out of scope for the guided free setup. In 9Router, connect OpenCode Go, Z.ai or ClinePass, create a combo named `budget-best` (Strategy: Fallback), and select it in your harness:
+
+```sh
+pi --provider 9router --model budget-best
+```
+
+frugal leaves paid plans, spend and the cap to you. It does not offer or manage them.
 
 ## Development
 

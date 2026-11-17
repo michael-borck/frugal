@@ -307,6 +307,65 @@ describe("runSetup (thin)", () => {
     ).rejects.toBeTruthy();
   });
 
+  it("adds providers from flags and keys", async () => {
+    const calls: string[] = [];
+    const created: Array<[string, unknown]> = [];
+    const session = makeSession({
+      validateProvider: async (provider, key) => {
+        calls.push(`validate:${provider}:${key}`);
+        return { ok: true, detail: "key accepted" };
+      },
+      createProvider: async (provider, key, data) => {
+        calls.push(`create:${provider}:${key}`);
+        created.push([provider, data]);
+        return { ok: true, detail: "connected", already: false };
+      },
+    });
+    const keys = new Map([
+      ["OPENROUTER_API_KEY", "sk-or"],
+      ["CLOUDFLARE_API_TOKEN", "cf-token"],
+      ["CLOUDFLARE_ACCOUNT_ID", "acct"],
+    ]);
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session,
+      nonInteractive: true,
+      harness: "none",
+      verify: false,
+      providers: ["openrouter", "cloudflare-ai"],
+      providerKeys: keys,
+    });
+    expect(code).toBe(0);
+    expect(calls).toContain("validate:openrouter:sk-or");
+    expect(calls).toContain("create:openrouter:sk-or");
+    expect(calls).toContain("validate:cloudflare-ai:cf-token");
+    expect(created).toContainEqual(["cloudflare-ai", { accountId: "acct" }]);
+    expect(prompter.infos.join("\n")).toMatch(/OpenRouter connected/);
+  });
+
+  it("skips a provider when a required key is missing", async () => {
+    const session = makeSession();
+    const prompter = new ScriptedPrompter();
+    const code = await runSetup(ctx, {
+      prompter,
+      paths: ctx.paths,
+      fetchImpl: fakeRouter(),
+      detectLocal: async () => [],
+      session,
+      nonInteractive: true,
+      harness: "none",
+      verify: false,
+      providers: ["cloudflare-ai"],
+      providerKeys: new Map([["CLOUDFLARE_API_TOKEN", "only-token"]]),
+    });
+    expect(code).toBe(0);
+    expect(prompter.infos.join("\n")).toMatch(/Skipping Cloudflare Workers AI/);
+  });
+
   it("returns an error when there are no credentials", async () => {
     const prompter = new ScriptedPrompter({ confirms: [true], secrets: [""] });
     const code = await runSetup(ctx, {

@@ -168,6 +168,9 @@ Providers
 frugal providers
 List the providers 9Router has connected, inferred from its model list
 Providers
+frugal guide providers
+Thin guide per free provider: signup link, where the key is, env var name, and two or three steps; one maintained data source, not a document per provider
+Providers
 frugal add <provider> / frugal remove <provider>
 Power-user convenience: open or explain the matching 9Router provider screen. Keys and connections live in 9Router, not frugal.
 Upkeep
@@ -195,7 +198,7 @@ Check that Node.js is installed; if not, explain how to get it and stop.
 Detect a running 9Router on 127.0.0.1:20128. If one answers, reuse it and never touch it. If none answers, offer (default yes) to install the pinned release into frugal's own directory and start it as a managed process; install locally, not globally, so no sudo is needed and uninstall is clean. Never install silently, and never use a floating "latest".
 Ask for the 9Router dashboard password (held in memory only, never stored; FRUGAL_ROUTER_PASSWORD for scripts). Log in to the dashboard session, POST /api/models/catalog-sync to refresh provider catalogs, then reuse or create an sk- API key via /api/keys. If the login is skipped or fails, fall back to FRUGAL_ROUTER_KEY or prompt for the API key.
 Show the privacy notice. Provider keys are entered in 9Router, not frugal; frugal prints a short checklist of the recommended free providers and links to 9Router's dashboard. frugal never stores provider keys.
-Provider walkthrough. Offer a menu of free providers. For API-key providers, ask for the key, validate it via /api/providers/validate, then create the connection via /api/providers. Cloudflare asks for an API token and an Account ID (providerSpecificData.accountId). OpenCode Free needs no key and is created as a no-auth connection. OAuth providers (Kiro, Gemini CLI, Copilot) still use the browser flow. Keys transit frugal in memory only and are stored by 9Router. Paid plans (OpenCode Go, Z.ai, ClinePass) are not offered: the user connects them in 9Router and makes budget-best. Detect any local model server and leave the student's existing Pi Ollama and shared-server providers untouched.
+Provider walkthrough. Offer a menu of free providers. For API-key providers, ask for the key, validate it via /api/providers/validate, then create the connection via /api/providers. Cloudflare asks for an API token and an Account ID (providerSpecificData.accountId). OpenCode Free needs no key and is created as a no-auth connection. OAuth providers (Kiro, Gemini CLI, Copilot) still use the browser flow. Keys transit frugal in memory only and are stored by 9Router. Paid plans (OpenCode Go, Z.ai, ClinePass) are not offered: the user connects them in 9Router and makes budget-best. Unattended runs can add providers with --provider id[,id], reading keys from the environment or a --keys-file (dotenv-style); frugal guide providers prints the thin per-provider instructions. The ISYS6014 super-script uses these flags. Detect any local model server and leave the student's existing Pi Ollama and shared-server providers untouched.
 Verify a spread of the connected models with one-token probes, record the outcomes in the reliability ledger, and write free-best through the session API (/api/combos), setting the per-combo strategy to Fallback. If no session is available, print a paste-ready order for the combo editor instead of failing.
 Ask which harness to configure, defaulting to Pi (lightweight, for older laptops), then write it: a 9router provider in Pi models.json, or the router9 provider plus compaction in OpenCode. Show the Msty paste guide.
 Run doctor and send one test message through free-best.
@@ -605,6 +608,7 @@ Added open questions
 Decided: the project is frugal (command frugal, npm package frugalrouter), with frugal-bench for the benchmark.
 Decided: frugal is a configurator, not a proxy (decision A). 9Router owns failover; the harness owns compaction. OpenCode is the recommended default harness; Pi (lightweight) and Msty (GUI, guided paste) are supported. frugal watch and frugal mcp are optional v0.2 features.
 Decided: no Msty clone. Msty remains the GUI chat client; a later frugal-ui, if built, is a local control panel only, and any chat/RAG/vision app is a separate project (frugal-chat) that talks to 9Router.
+Decided: CLI-first for ISYS6014. No Tauri app for the unit; the unit repo gets a course-specific super-script that installs/checks Node, Ollama and Pi, then calls frugal setup --yes with provider flags and a keys file. Tauri remains an optional v0.3 for non-technical users outside the unit.
 Decided: 9Router install is optional and detect-then-offer, never forced. Install the pinned version locally into frugal's own directory (npm --prefix), not globally and never "latest". A RouterManager owns detect/install/start/stop/update/uninstall and backs both the CLI and the future app. The CLI is canonical; a Tauri desktop app in v0.3 bundles a Node runtime and 9Router so a low-tech student needs no terminal and no separate Node install.
 Should the default cap be lower than the $40 ceiling, for example $20?
 Who pays for the budget tier: students, a sponsor or the school?

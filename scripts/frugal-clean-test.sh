@@ -22,6 +22,8 @@ ISOLATE_HOME=0
 YES=0
 HARNESS="pi"
 VERIFY=0
+PROVIDERS=""
+KEYS_FILE=""
 
 usage() {
   cat <<'EOF'
@@ -36,6 +38,8 @@ Usage: scripts/frugal-clean-test.sh [options]
   --yes, -y           Run frugal setup unattended (passes --yes --harness <name>)
   --harness <name>    Harness for unattended runs: pi|opencode|both|msty|none (default pi)
   --verify            Verify models even when unattended (spends a little quota)
+  --provider <ids>    Comma list to add unattended (e.g. openrouter,cloudflare-ai)
+  --keys-file <path>  Dotenv-style keys for --provider (env still wins)
   -h, --help          This help
 
 Environment overrides: FRUGAL_CLEAN_DIR, FRUGAL_CLEAN_PASSWORD
@@ -53,6 +57,10 @@ while [[ $# -gt 0 ]]; do
     --yes|-y) YES=1; shift ;;
     --harness) HARNESS="${2:?--harness needs a value}"; shift 2 ;;
     --verify) VERIFY=1; shift ;;
+    --provider) PROVIDERS="${2:?--provider needs ids}"; shift 2 ;;
+    --provider=*) PROVIDERS="${1#*=}"; shift ;;
+    --keys-file) KEYS_FILE="${2:?--keys-file needs a path}"; shift 2 ;;
+    --keys-file=*) KEYS_FILE="${1#*=}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -79,6 +87,8 @@ echo "  dashboard pw:    $PASSWORD"
 if [[ $DRY -eq 1 ]]; then
   [[ $YES -eq 1 ]] && echo "  unattended:      --yes --harness $HARNESS"
   [[ $VERIFY -eq 1 ]] && echo "  verify:          yes"
+  [[ -n "$PROVIDERS" ]] && echo "  providers:       $PROVIDERS"
+  [[ -n "$KEYS_FILE" ]] && echo "  keys file:       $KEYS_FILE"
   echo "  dry run: not stopping the port, not running setup"
   exit 0
 fi
@@ -146,6 +156,12 @@ if [[ $YES -eq 1 ]]; then
 fi
 if [[ $VERIFY -eq 1 ]]; then
   SETUP_ARGS+=(--verify)
+fi
+if [[ -n "$PROVIDERS" ]]; then
+  SETUP_ARGS+=(--provider "$PROVIDERS")
+fi
+if [[ -n "$KEYS_FILE" ]]; then
+  SETUP_ARGS+=(--keys-file "$KEYS_FILE")
 fi
 (cd "$ROOT" && node "$CLI" "${SETUP_ARGS[@]}")
 
