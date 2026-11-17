@@ -139,4 +139,39 @@ describe("RouterManager", () => {
     expect(result.stopped).toBe(true);
     expect(harness.killed).toEqual([]);
   });
+
+  it("passes DATA_DIR and INITIAL_PASSWORD through to 9Router", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "frugal-router-env-"));
+    const originalData = process.env.FRUGAL_ROUTER_DATA_DIR;
+    const originalPassword = process.env.FRUGAL_ROUTER_INITIAL_PASSWORD;
+    process.env.FRUGAL_ROUTER_DATA_DIR = path.join(tmp, "nine-data");
+    process.env.FRUGAL_ROUTER_INITIAL_PASSWORD = "test-pw";
+    let captured: NodeJS.ProcessEnv | undefined;
+    let healthy = false;
+    try {
+      const manager = new RouterManager({
+        configDir: tmp,
+        healthAttempts: 1,
+        healthIntervalMs: 1,
+        health: async () => healthy,
+        isInstalled: async () => true,
+        spawnDetached: async (_command, _args, options) => {
+          captured = options.env;
+          healthy = true;
+          return { pid: 99 };
+        },
+        kill: () => {},
+        sleep: async () => {},
+      });
+      await manager.start();
+    } finally {
+      if (originalData == null) delete process.env.FRUGAL_ROUTER_DATA_DIR;
+      else process.env.FRUGAL_ROUTER_DATA_DIR = originalData;
+      if (originalPassword == null) delete process.env.FRUGAL_ROUTER_INITIAL_PASSWORD;
+      else process.env.FRUGAL_ROUTER_INITIAL_PASSWORD = originalPassword;
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+    expect(captured?.DATA_DIR).toBe(path.join(tmp, "nine-data"));
+    expect(captured?.INITIAL_PASSWORD).toBe("test-pw");
+  });
 });

@@ -173,12 +173,20 @@ export class RouterManager implements RouterLifecycle {
   }
 
   private env(): NodeJS.ProcessEnv {
-    return {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PORT: String(ROUTER_PORT),
       HOSTNAME: "127.0.0.1",
       NEXT_PUBLIC_BASE_URL: `http://127.0.0.1:${ROUTER_PORT}`,
     };
+    // Isolated clean-test / advanced runs: 9Router reads DATA_DIR for its
+    // SQLite database (~/.9router by default) and INITIAL_PASSWORD for a fresh
+    // install's dashboard password.
+    if (process.env.FRUGAL_ROUTER_DATA_DIR) env.DATA_DIR = process.env.FRUGAL_ROUTER_DATA_DIR;
+    if (process.env.FRUGAL_ROUTER_INITIAL_PASSWORD) {
+      env.INITIAL_PASSWORD = process.env.FRUGAL_ROUTER_INITIAL_PASSWORD;
+    }
+    return env;
   }
 
   isRunning(): Promise<boolean> {

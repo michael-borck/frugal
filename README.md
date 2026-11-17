@@ -94,6 +94,27 @@ npm run build              # emit dist/
 
 See `docs/SPIKE.md` for the checklist that verifies 9Router's control API and fallback behaviour against a live instance.
 
+## Testing from a clean slate
+
+9Router keeps its data in `~/.9router` on macOS/Linux (`%APPDATA%\9router` on Windows), with the SQLite database at `~/.9router/db/data.sqlite`. Uninstalling the npm package does **not** remove that data, and a running instance keeps port 20128 busy.
+
+1. Stop any running 9Router:
+   ```sh
+   lsof -nP -iTCP:20128 -sTCP:LISTEN    # kill that PID, or quit the 9Router tray/CLI
+   ```
+2. Run frugal against an isolated data directory (does not touch `~/.9router`):
+   ```sh
+   export FRUGAL_HOME=/tmp/frugal-clean
+   export FRUGAL_ROUTER_DATA_DIR=/tmp/frugal-clean/nine-data
+   export FRUGAL_ROUTER_INITIAL_PASSWORD=test1234
+   export FRUGAL_ROUTER_PASSWORD=test1234
+   frugal setup
+   ```
+   frugal installs its own pinned 9Router under `$FRUGAL_HOME/router`, so a global `npm install -g 9router` is optional. Stop it with `FRUGAL_HOME=/tmp/frugal-clean frugal stop`; remove the test with `rm -rf /tmp/frugal-clean`.
+3. To wipe the real 9Router instead, stop it and move the data aside: `mv ~/.9router ~/.9router.bak`.
+
+The harness configs are the real ones: frugal backs up and updates `~/.pi/agent/models.json` (preserving your Ollama and shared-server providers) or `~/.config/opencode/opencode.json`. Move those aside first if you want a totally clean harness test.
+
 ## License
 
 MIT. See `LICENSE`.
