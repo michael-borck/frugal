@@ -1,6 +1,6 @@
 {
   "name": "@borck/frugal",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "One-command installer and updater for a local 9Router with a ranked fallback chain of free, local and optional low-cost models.",
   "license": "MIT",
   "type": "module",
@@ -19,13 +19,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
     "dev": "tsx src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean-test": "bash scripts/frugal-clean-test.sh"
+    "clean-test": "bash scripts/frugal-clean-test.sh",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
