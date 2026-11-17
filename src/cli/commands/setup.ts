@@ -11,6 +11,7 @@ import { HttpRouterClient, type RouterClient } from "../../core/routerClient.js"
 import { HttpRankingSource, type RankingSource } from "../../core/rankingSource.js";
 import { RouterManager, type RouterLifecycle } from "../../core/routerManager.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
+import { loadReliability, reliabilityMap } from "../../core/reliability.js";
 import { recommendedContextLimit } from "../../core/combos.js";
 import { applyIntegrations, type ApplyOptions } from "../../core/integrations/index.js";
 import type { IntegrationResult } from "../../core/integrations/base.js";
@@ -196,7 +197,12 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
         picksUrl: nextUser.picksUrl ?? DEFAULT_PICKS_URL,
         usageUrl: nextUser.usageUrl ?? DEFAULT_USAGE_URL,
       });
-    const composed = await composeAndRegister(nextUser, source, router);
+    const composed = await composeAndRegister(
+      nextUser,
+      source,
+      router,
+      reliabilityMap(await loadReliability(paths)),
+    );
     if (composed.registered) {
       const state = await loadState(paths);
       await saveState(paths, stateFromCombos(state, composed.combos, []));

@@ -119,6 +119,37 @@ describe("mergeCandidates", () => {
     expect(ordered.map((c) => c.id)).toEqual(["free"]);
   });
 
+  it("orders within a tier by bench availability, then reliability", () => {
+    const res = results([
+      entry({ id: "solid", tier: "A", suites: { code: 0.5, tools: 0.8, availability: 0.95, long_context: 0.5 } }),
+      entry({ id: "flaky", tier: "A", suites: { code: 0.5, tools: 0.8, availability: 0.4, long_context: 0.5 } }),
+      entry({ id: "mid", tier: "A", suites: { code: 0.5, tools: 0.8, availability: 0.7, long_context: 0.5 } }),
+    ]);
+    const { ordered } = mergeCandidates({
+      candidates: [candidate({ id: "flaky" }), candidate({ id: "mid" }), candidate({ id: "solid" })],
+      results: res,
+      user: defaultUserConfig(),
+    });
+    expect(ordered.map((c) => c.id)).toEqual(["solid", "mid", "flaky"]);
+  });
+
+  it("uses observed reliability to break an availability tie", () => {
+    const res = results([
+      entry({ id: "steady", tier: "A", suites: { code: 0.5, tools: 0.8, availability: 0.9, long_context: 0.5 } }),
+      entry({ id: "shaky", tier: "A", suites: { code: 0.5, tools: 0.8, availability: 0.9, long_context: 0.5 } }),
+    ]);
+    const { ordered } = mergeCandidates({
+      candidates: [candidate({ id: "shaky" }), candidate({ id: "steady" })],
+      results: res,
+      user: defaultUserConfig(),
+      reliability: new Map([
+        ["steady", 0.95],
+        ["shaky", 0.2],
+      ]),
+    });
+    expect(ordered.map((c) => c.id)).toEqual(["steady", "shaky"]);
+  });
+
   it("caps the combo at the maximum entry count", () => {
     const many = Array.from({ length: 20 }, (_, i) => candidate({ id: `m${i}` }));
     const { ordered } = mergeCandidates({ candidates: many, user: defaultUserConfig() });

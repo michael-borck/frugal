@@ -156,6 +156,9 @@ Benchmark the local model on this GPU and compare it with the top free cloud mod
 Settings
 frugal rankings
 Configure the hosted results.json, picks.json and usage ranking URLs; all are optional and unset means a graceful fallback
+Upkeep
+frugal reliability
+Show observed success rate, recency-weighted score and latency per provider and model over a time window
 Providers
 frugal providers
 List enabled providers and whether each key works
@@ -199,9 +202,11 @@ Candidates. Fetch OpenRouter's model list and keep entries whose prompt and comp
 Filters. Drop any candidate that is not text-output, lacks tool-calling support, has a context window below 128K tokens (configurable; local models use a lower minimum of their own, since they rarely run at 128K), or is on the instructor's ban list. This removes safety classifiers, rerankers and tiny models that appear in free lists but are useless for coding agents.
 Score. Order by the first source available, in this priority:
 frugal-bench results.json composite score, grouped into tiers (see section 8)
+Bench availability, then locally observed reliability, as tiebreakers within a tier. Within a tier frugal orders by availability first, then by the reliability ledger's recency-weighted success rate, then by usage rank.
 Usage rank, as the fallback and as the tiebreaker within a tier. The usage source is pluggable and configured with frugal rankings --usage, because OpenRouter's public models API exposes no usage field and its rankings page is not a stable API. The instructor can publish a usage.json beside results.json, or point at a verified OpenRouter ranking endpoint once the spike confirms one. When no usage source is configured, the tiebreak is model name.
 Merge instructor picks. Apply picks.json: pinned models go first in the stated order, banned models are removed, preferred models get a bonus within their tier. Then apply the student's own overrides (section 10 merge order), cap the combo at 8 to 10 entries and write it to 9Router; the free tier's combo is named free-best.
 Hosted sources are optional. results.json, picks.json and usage.json are each optional; an unset or unreachable source is skipped and the next tiebreak is used, so frugal never depends on a hardcoded placeholder URL.
+Reliability ledger. frugal appends timestamped observations to a local observations.jsonl: catalog and key checks, router health and local-server probes it already performs, and, once frugal watch exists, real request outcomes read from 9Router's usage API (success, 429, latency, model). frugal reliability summarises the last N days per provider and per model: raw success rate, a recency-weighted (EWMA) success score, consecutive failures, last OK and last fail times, and median latency. The EWMA score is the ranking tiebreak described above, and a provider whose recent success collapses is pushed down even if an older benchmark still likes it. Observations contain provider and model ids, status codes, latency and timestamps only: never prompts, never keys, never uploaded.
 Ranking caveat. Usage rankings measure adoption, not quality, so they are a fallback and tiebreaker only. When frugal-bench results are older than 45 days, frugal warns in doctor and relies more on usage rank.
 Refresh triggers
 On every frugal start, if the combo is older than 24 hours.
@@ -275,6 +280,21 @@ Candidates, paid (budget tier)
 Subscription
 About $10 to $20 at entry
 Some plans restrict the key to named tools; check terms before routing through 9Router
+CrowLLM
+Optional, not default (candidate)
+Free signup; API key
+Has :free models, but the :free suffix is not a price guarantee (some are billed per request) and the public /v1/models does not expose pricing; some free coding models measured ~10% success and ~29s latency
+Solo-run aggregator; terms change without much notice; one account per user; keep out of the default set and rank only after frugal-bench measures it
+Requesty
+Optional, not default (candidate)
+Free signup; API key; no card for free models
+Free models about 200 requests/day and 20/min shared; public /v1/models exposes input/output price, context and tool support
+Aggregator at router.requesty.ai/v1; verify free-model set and terms per term
+Kilo AI Gateway
+Optional, not default (candidate)
+Free signup or anonymous; API key
+Free models about 200 requests/hour per IP; public /v1/models exposes isFree and mayTrainOnYourPrompts
+Aggregator at api.kilo.ai/api/gateway; surface the prompt-training flag to students
 Local server (Ollama, llama.cpp, Kindi)
 Optional, first-class
 Install an engine and a model; no account
@@ -367,7 +387,7 @@ The picks.json fetch uses HTTPS from one configured URL, validates the schema, a
 Privacy
 Tell the student at setup that free endpoints often log prompts and may use them for training, and that they should not paste credentials, personal data or private school material.
 Provider age limits and school policy apply. The instructor confirms eligibility before rollout; frugal does not decide it.
-Telemetry is off by default. If the instructor wants class-wide health data, it is opt-in and limited to pass/fail from doctor, with no prompts or keys.
+Telemetry is off by default. If the instructor wants class-wide health data, it is opt-in and limited to pass/fail from doctor, with no prompts or keys. The local reliability ledger (observations.jsonl) is never uploaded and holds only provider/model ids, status codes, latency and timestamps.
 Failure handling
 Failure
 Behavior
@@ -478,7 +498,7 @@ results.json (written by frugal-bench, one entry per model)
 {  "schema_version": "1.0",  "generated_at": "2026-11-16T02:00:00Z",  "suite_version": "2026.11",  "models": [    {      "id": "vendor/model-name:free",      "provider": "openrouter",      "tier": "A",      "score": 0.71,      "score_ci95": [0.64, 0.78],      "suites": { "code": 0.68, "tools": 0.82, "availability": 0.9, "long_context": 0.6 },      "median_latency_ms": 2400,      "context_tokens": 262144,      "gates_passed": true,      "last_full_run": "2026-11-01",      "last_seen_free": "2026-11-16",      "status": "active"    }  ]}
 picks.json (written by the instructor)
 {  "schema_version": "1.0",  "updated_at": "2026-11-16",  "pin": ["vendor/model-a:free", "vendor/model-b:free"],  "prefer": ["vendor/model-c:free"],  "ban": ["vendor/model-d:free"],  "min_context_tokens": 131072,  "notes": "Model D fails tool calls in OpenCode."}
-Merge order (frugal): apply the student's bans and the instructor's bans, then the filters; keep only models allowed by the student's tier; place the student's pins first, then the instructor's pins in their listed order; sort the rest by tier, then availability, then usage rank, giving a small bonus to preferred models within their tier. In the budget tier, models with access set to budget from the student's enabled plan sort ahead of free models.
+Merge order (frugal): apply the student's bans and the instructor's bans, then the filters; keep only models allowed by the student's tier; place the student's pins first, then the instructor's pins in their listed order; sort the rest by tier, then bench availability, then observed reliability, then usage rank, giving a small bonus to preferred models within their tier. In the budget tier, models with access set to budget from the student's enabled plan sort ahead of free models.
 Compatibility rule. New fields may be added without a version change; frugal ignores unknown fields. Removing or renaming a field requires a major version bump and a migration note in the repository.
 user.json (local file written by the frugal commands, never uploaded)
 {  "schema_version": "1.0",  "tier": "free",  "max_monthly_usd": 40,  "pin": ["vendor/model-a:free"],  "ban": ["vendor/model-d:free"],  "lock": null,  "local_mode": "fallback",  "enabled_providers": ["opencode-free", "openrouter", "groq"]}
@@ -563,6 +583,7 @@ Whether OpenCode and Pi compact automatically and cope with a fallback model tha
 Whether 9Router's token saver keeps a stable prompt prefix and preserves provider cache markers.
 GitHub Education's eligibility rules (school type, age, country), read from GitHub's official pages.
 The terms of each candidate cheap plan (GLM, Kimi, Chutes, ClinePass) for use through a generic proxy.
+CrowLLM's true free-model set and limits. Its public /v1/models lists ids but not prices, and the :free suffix is not reliable; confirm a machine-readable price source and realistic limits before treating any CrowLLM model as free.
 Local reference unverified assumptions
 The VRAM budgets (75% of VRAM at 8 and 12 GB, 65% at 6 GB) are estimates and need tuning against real runs.
 Kindi's claim that greedy output matches llama.cpp on the same model file, and where its community's verification results are published.

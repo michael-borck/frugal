@@ -7,6 +7,7 @@ import {
 import { isProviderId, providerIds, providerInfo } from "../../core/providers.js";
 import { removeProviderKey, setProviderKey } from "../../core/secrets.js";
 import { isValidatableProvider, validateProviderKey } from "../../core/validateKey.js";
+import { makeObservation, recordObservation } from "../../core/reliability.js";
 import type { ProviderId, UserConfig } from "../../core/types.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
@@ -71,6 +72,15 @@ export async function runAdd(
 
   if (info.validatable && isValidatableProvider(info.id)) {
     const result = await validateProviderKey(info.id, key, deps.fetchImpl ?? fetch);
+    await recordObservation(
+      paths,
+      makeObservation({
+        provider: info.id,
+        kind: "key",
+        ok: result.ok,
+        error: result.ok ? undefined : result.detail,
+      }),
+    );
     if (!result.ok) {
       say(`${result.detail}. The key was not stored.`);
       jsonOut(ctx, { provider: info.id, ok: false, error: "invalid-key", detail: result.detail });

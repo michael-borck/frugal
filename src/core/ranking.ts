@@ -48,6 +48,8 @@ function passesFilters(
 
 const TIER_ORDER: Record<ScoreTier, number> = { A: 0, B: 1, C: 2 };
 
+const NEUTRAL_SIGNAL = 0.5;
+
 function compareRest(
   a: ModelCandidate,
   b: ModelCandidate,
@@ -59,6 +61,16 @@ function compareRest(
   const aPref = preferred.has(a.id) ? 0 : 1;
   const bPref = preferred.has(b.id) ? 0 : 1;
   if (aPref !== bPref) return aPref - bPref;
+
+  // Within a tier: bench availability, then locally observed reliability,
+  // then usage rank. Unknown signals are neutral rather than penalised.
+  const aAvailability = a.availability ?? NEUTRAL_SIGNAL;
+  const bAvailability = b.availability ?? NEUTRAL_SIGNAL;
+  if (aAvailability !== bAvailability) return bAvailability - aAvailability;
+
+  const aReliability = a.reliability ?? NEUTRAL_SIGNAL;
+  const bReliability = b.reliability ?? NEUTRAL_SIGNAL;
+  if (aReliability !== bReliability) return bReliability - aReliability;
 
   const aUsage = a.usageRank ?? Number.MAX_SAFE_INTEGER;
   const bUsage = b.usageRank ?? Number.MAX_SAFE_INTEGER;
@@ -84,15 +96,21 @@ export function mergeCandidates(input: MergeInput): MergeResult {
       continue;
     }
     const scored = byId.get(candidate.id);
-    const enriched: ModelCandidate = scored
-      ? {
-          ...candidate,
-          score: scored.score,
-          tier: scored.tier,
-          scoreCi95: scored.score_ci95,
-          medianLatencyMs: scored.median_latency_ms,
-        }
-      : candidate;
+    const reliability =
+      input.reliability?.get(candidate.id) ?? input.reliability?.get(candidate.provider);
+    const enriched: ModelCandidate = {
+      ...candidate,
+      ...(reliability != null ? { reliability } : {}),
+      ...(scored
+        ? {
+            score: scored.score,
+            tier: scored.tier,
+            scoreCi95: scored.score_ci95,
+            medianLatencyMs: scored.median_latency_ms,
+            availability: scored.suites.availability,
+          }
+        : {}),
+    };
     kept.push(enriched);
   }
 

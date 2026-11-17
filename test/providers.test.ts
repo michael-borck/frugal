@@ -51,6 +51,10 @@ describe("provider catalog", () => {
     expect(providerInfo("opencode-free")?.auth).toBe("none");
     expect(providerInfo("openrouter")?.validatable).toBe(true);
     expect(providerInfo("kiro")?.auth).toBe("oauth");
+    expect(providerInfo("crowllm")?.auth).toBe("key");
+    expect(providerInfo("crowllm")?.validatable).toBe(false);
+    expect(providerInfo("requesty")?.auth).toBe("key");
+    expect(providerInfo("kilo")?.auth).toBe("key");
   });
 });
 

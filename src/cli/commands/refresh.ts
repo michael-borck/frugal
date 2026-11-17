@@ -2,6 +2,7 @@ import { defaultPaths, loadState, loadUserConfig, saveState } from "../../core/c
 import { HttpRouterClient } from "../../core/routerClient.js";
 import { HttpRankingSource } from "../../core/rankingSource.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
+import { loadReliability, reliabilityMap } from "../../core/reliability.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
 const DEFAULT_RESULTS_URL = process.env.FRUGAL_RESULTS_URL;
@@ -30,7 +31,12 @@ export const refreshCommand: Command = {
       return 1;
     }
 
-    const result = await composeAndRegister(user, source, router);
+    const result = await composeAndRegister(
+      user,
+      source,
+      router,
+      reliabilityMap(await loadReliability(paths)),
+    );
 
     if (result.registered) {
       const nextState = stateFromCombos(

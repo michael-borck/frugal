@@ -37,6 +37,8 @@ frugal generates an API key and a dashboard password. Confirm:
 
 Record the login flow and which endpoints each credential opens.
 
+For the reliability ledger, confirm that `/api/usage/request-details` (or an equivalent) returns, per request, the model used, the HTTP status, and latency. Those three fields are all `frugal watch` needs to append request-outcome observations that drive the recency-weighted reliability ranking.
+
 ## 3. Fallback on rate limit
 
 Create a combo whose first model is the broken/limited connection and second is healthy. Send one chat request and observe:

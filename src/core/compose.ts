@@ -21,6 +21,7 @@ export async function composeAndRegister(
   user: MergeInput["user"],
   source: RankingSource,
   router: RouterClient,
+  reliability?: Map<string, number>,
 ): Promise<ComposeResult> {
   let candidates: MergeInput["candidates"];
   let results: MergeInput["results"];
@@ -50,7 +51,7 @@ export async function composeAndRegister(
     };
   }
 
-  const built = buildCombos({ candidates, results, picks, user });
+  const built = buildCombos({ candidates, results, picks, user, reliability });
   const combos = allSnapshots(built);
 
   let registered = false;

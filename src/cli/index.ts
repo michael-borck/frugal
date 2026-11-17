@@ -23,6 +23,7 @@ import {
 } from "./commands/settings.js";
 import { addCommand, removeCommand } from "./commands/providerCommands.js";
 import { rankingsCommand } from "./commands/rankings.js";
+import { reliabilityCommand } from "./commands/reliability.js";
 
 function version(): string {
   try {
@@ -54,6 +55,7 @@ const COMMANDS: Command[] = [
   addCommand,
   removeCommand,
   rankingsCommand,
+  reliabilityCommand,
   reportCommand,
   updateCommand,
   uninstallCommand,

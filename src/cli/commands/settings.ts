@@ -1,6 +1,7 @@
 import { defaultPaths, loadUserConfig, saveUserConfig } from "../../core/config.js";
 import { DEFAULT_MAX_MONTHLY_USD, type LocalMode, type Tier } from "../../core/types.js";
 import { detectLocalServers, probeLocalServers } from "../../core/local.js";
+import { makeObservation, recordObservation } from "../../core/reliability.js";
 import { listProviderKeys } from "../../core/secrets.js";
 import { providerInfo } from "../../core/providers.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
@@ -35,9 +36,21 @@ export const localCommand: Command = {
   group: "Settings",
   async run(ctx: CommandContext, args: string[]) {
     const sub = args[0];
+    const paths = defaultPaths();
     if (sub === "detect") {
       const probes = await probeLocalServers();
       const detected = probes.filter((p) => p.reachable);
+      for (const probe of probes) {
+        await recordObservation(
+          paths,
+          makeObservation({
+            provider: "local",
+            model: probe.engine,
+            kind: "probe",
+            ok: probe.reachable,
+          }),
+        );
+      }
       jsonOut(ctx, {
         detected: detected.map(({ engine, port, baseUrl }) => ({ engine, port, baseUrl })),
         probes: probes.map(({ engine, port, reachable, detail }) => ({
@@ -77,7 +90,6 @@ export const localCommand: Command = {
     if (mode !== "fallback" && mode !== "first" && mode !== "only") {
       throw new UsageError("frugal local mode fallback|first|only");
     }
-    const paths = defaultPaths();
     const user = await loadUserConfig(paths);
     user.localMode = mode as LocalMode;
     await saveUserConfig(paths, user);

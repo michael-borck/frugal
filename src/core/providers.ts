@@ -26,6 +26,9 @@ export const PROVIDERS: ProviderInfo[] = [
   { id: "z-ai-glm", label: "Z.ai GLM", auth: "key", validatable: false },
   { id: "kimi", label: "Kimi", auth: "key", validatable: false },
   { id: "chutes", label: "Chutes", auth: "key", validatable: false },
+  { id: "crowllm", label: "CrowLLM", auth: "key", validatable: false },
+  { id: "requesty", label: "Requesty", auth: "key", validatable: false },
+  { id: "kilo", label: "Kilo AI Gateway", auth: "key", validatable: false },
   { id: "local", label: "Local model server", auth: "none", validatable: false },
 ];
 

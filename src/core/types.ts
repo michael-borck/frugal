@@ -19,6 +19,9 @@ export type ProviderId =
   | "z-ai-glm"
   | "kimi"
   | "chutes"
+  | "crowllm"
+  | "requesty"
+  | "kilo"
   | "local";
 
 export type ScoreTier = "A" | "B" | "C";
@@ -37,6 +40,10 @@ export interface ModelCandidate {
   tier?: ScoreTier;
   scoreCi95?: [number, number];
   medianLatencyMs?: number;
+  /** Bench availability score in [0,1], when a result exists. */
+  availability?: number;
+  /** Locally observed reliability in [0,1], when enough samples exist. */
+  reliability?: number;
 }
 
 /** results.json model entry (snake_case on the wire). */
@@ -146,6 +153,8 @@ export interface MergeInput {
   results?: ResultsFile | null;
   picks?: PicksFile | null;
   user: UserConfig;
+  /** model id or provider id -> observed reliability in [0,1]. */
+  reliability?: Map<string, number>;
 }
 
 export interface MergeResult {
