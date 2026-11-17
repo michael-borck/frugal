@@ -21,7 +21,7 @@ OpenAI-shaped API — your tools don't change as you climb:
 4. **Shared, on campus** — [Puente](https://locopuente.org), a self-hosted server running the full local stack for many students.
 
 The whole laptop kit — Node, Ollama, Pi, the skill folders, Msty if you want a GUI — is called
-**mochila** (Spanish for backpack): the AI you carry to class. frugal is mochila's cloud rung.
+**[mochila](https://github.com/michael-borck/mochila)** (Spanish for backpack): the AI you carry to class. frugal is mochila's cloud rung.
 
 ## Requirements
 
