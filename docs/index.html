@@ -92,7 +92,7 @@
     <a class="button" href="https://github.com/michael-borck/frugal">View source</a>
   </div>
   <div class="note">
-    Early build. The npm package (@michaelborck/frugal) is not published yet, so install from source below; the command is frugal. Built for
+    Early build. Install with `npm install -g @michaelborck/frugal`; the command is frugal. From-source install is below for development. Built for
     students on modest laptops: Pi is the default harness, and your existing local Ollama or a
     shared Ollama server stays untouched.
   </div>
@@ -128,13 +128,15 @@
   </p>
 
   <h2 id="quickstart">Quickstart</h2>
-  <p>Requires Node.js 22 or newer and a terminal. On a clean machine:</p>
+  <p>Requires Node.js 22 or newer and a terminal. Install from npm:</p>
+  <pre><code>npm install -g @michaelborck/frugal
+frugal setup</code></pre>
+  <p class="muted">From source, for development:</p>
   <pre><code>git clone https://github.com/michael-borck/frugal.git
 cd frugal
 npm install
 npm run build
 npm link          # exposes the `frugal` command
-
 frugal setup</code></pre>
   <p><code>frugal setup</code> will:</p>
   <ul>

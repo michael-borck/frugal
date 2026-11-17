@@ -36,7 +36,7 @@ npm install -g @michaelborck/frugal   # the command is `frugal`
 frugal setup
 ```
 
-The npm package is scoped (`@michaelborck/frugal`) because the bare `frugal` name is taken by an unrelated package. The command is still `frugal`. Until the first npm release, install from source:
+The npm package is scoped (`@michaelborck/frugal`) because the bare `frugal` name is taken by an unrelated package; the command is still `frugal`. Published as 0.1.0. For development, install from source:
 
 ```sh
 git clone https://github.com/michael-borck/frugal.git
