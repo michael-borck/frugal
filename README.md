@@ -4,9 +4,11 @@ One command to a working, auto-failover coding setup. frugal is a **configurator
 
 Harness support: **OpenCode is the recommended default** (open, JSON-configurable, native auto-compaction, MCP). **Pi** is supported as a very light-weight alternative via its 9Router extension. **Msty.ai** is supported through a one-time guided paste.
 
-frugal never sits in the request path. Once configured, the student's tools talk only to 9Router; 9Router owns failover, cooldowns, and quota handling, and the harness owns compaction. frugal's job is to make that setup one command, keep the combos current, and configure the harness's compaction so the common case never hits an overflow.
+frugal never sits in the request path. Once configured, the student's tools talk only to 9Router; 9Router owns provider connections and API keys, failover, quota, usage charts and the token saver, and the harness owns compaction. frugal's job is to make that setup one command, verify which models actually answer, apply the ranked combo, and wire the harness.
 
-> Status: early build. Working now: the command surface; the configurator core (combo building, 9Router registration); a RouterManager that can detect, install (pinned, local), start and stop 9Router; live free-model discovery from OpenRouter; a runnable interactive `setup` (tier, cap, provider key validation, local mode, optional router install); harness writers for OpenCode (provider, compaction, declared context limit), Pi, and Msty; local server detection; secure key storage; `frugal add`/`remove`/`rankings`; and `doctor`. Remaining spike items: verifying the 9Router combo API and non-interactive provisioning against a live instance, and the usage-ranking source. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
+**Scope:** frugal is deliberately thin — an opinionated installer/configurator for 9Router, not a router. Provider keys and connections live in 9Router. Power users can configure 9Router directly and ignore frugal; frugal must never get in the way.
+
+> Status: early build. Working now: the command surface; a RouterManager that detects, installs (pinned, local), starts and stops 9Router; an interactive `setup` (tier, cap, local mode, optional router install); `frugal verify` (probe advertised models, keep responders); the reliability ledger and `frugal reliability`; catalog/usage/picks configuration via `frugal rankings`; harness writers for OpenCode (provider, compaction, context limit), Pi and Msty; local server detection; `doctor`/`status`. Provider key entry still exists but the thin scope moves keys into 9Router; trimming it is next. Remaining spike items: 9Router's combo/provider API (currently dashboard-session only) and non-interactive provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
 
 ## Requirements
 
@@ -37,7 +39,7 @@ frugal setup
 | `frugal tier free\|budget` | Switch tier |
 | `frugal local mode fallback\|first\|only` | Set local model behaviour |
 | `frugal providers` | List enabled providers and key status |
-| `frugal add <provider>` / `frugal remove <provider>` | Guided key entry and validation, or disconnect and delete the key |
+| `frugal add <provider>` / `frugal remove <provider>` | Point to 9Router's provider screen; keys and connections live in 9Router |
 | `frugal rankings` | Configure the hosted `results.json`, `picks.json` and usage ranking URLs |
 | `frugal reliability` | Show observed success and latency per provider/model over time |
 | `frugal report` / `update` / `uninstall` | Upkeep |
@@ -54,7 +56,7 @@ Every command accepts `--json` where it prints data, so pilot results can be col
 
 ## Ranking sources
 
-Where the candidate models come from: `frugal-bench`'s published **`catalog.json`** by default (`https://raw.githubusercontent.com/michael-borck/frugal-bench/main/catalog.json`), filtered to the student's enabled providers and tier. If the catalog is unreachable, frugal falls back to a live OpenRouter free-model fetch. Add more providers with `frugal add`.
+Where the candidate models come from: `frugal-bench`'s published **`catalog.json`** by default (`https://raw.githubusercontent.com/michael-borck/frugal-bench/main/catalog.json`), filtered to the student's enabled providers and tier. If the catalog is unreachable, frugal falls back to a live OpenRouter free-model fetch. Connect providers in 9Router; the thin direction is to treat 9Router's connected models as the source and the catalog as optional enrichment.
 
 The combo order comes from, in priority: student pins/bans, instructor `picks.json`, `frugal-bench` `results.json`, then bench availability, observed reliability, usage rank and model name. All hosted sources are optional and set with `frugal rankings`:
 

@@ -33,6 +33,8 @@ Order of preference. The default order comes from frugal-bench, and the student 
 Local models. frugal handles a locally installed model (through Ollama, llama.cpp or Kindi) as a first-class provider alongside the cloud free models, not as an afterthought. A local_mode setting, stored in user.json, decides how local and cloud models combine (section 4). The instructor runs frugal-bench and publishes the local reference results so that students can read them and make up their own minds; the reference informs the choice but never makes it for them.
 ### 2. Project 1: frugal, scope and requirements
 frugal is a cross-platform command-line tool that installs and configures a pinned version of 9Router for one student, keeps its combos current, and connects the student's coding tools to it.
+Scope decision: frugal is deliberately thin. It is an opinionated installer and configurator for 9Router, not a router, provider manager, or chat client. 9Router owns provider connections and API keys, routing and fallback, quota tracking, usage charts and the token saver. frugal owns taking a student from nothing to a working, instructor-default setup in one command: install and start 9Router, guide the recommended provider connections in 9Router's own dashboard, verify which advertised models actually answer, build or apply the ranked combo (paste-ready while 9Router's session-only combo API is unconfirmed), wire OpenCode, Pi and Msty plus compaction, and offer doctor, status, reliability and uninstall.
+Non-goals for frugal (thin scope): provider key prompts or a key store (keys live in 9Router); scanning provider catalogs as a source of truth (frugal-bench owns ranking, a catalog is optional enrichment); reimplementing fallback, quotas, usage charts or the token saver; and any chat or RAG UI. Power users can configure 9Router directly and ignore frugal; frugal must never get in the way.
 Users
 User
 Needs
@@ -167,7 +169,7 @@ frugal providers
 List enabled providers and whether each key works
 Providers
 frugal add <provider> / frugal remove <provider>
-Guided signup, key test and connection, or disconnect and delete the key
+Power-user convenience: open or explain the matching 9Router provider screen. Keys and connections live in 9Router, not frugal.
 Upkeep
 frugal report
 Open the instructor's published benchmark reference
@@ -185,18 +187,18 @@ frugal mcp
 Run a read-only MCP server that exposes router status and quota as a tool/resource inside supported harnesses (OpenCode first)
 CLI rules
 Every command works with no flags in normal use and is safe to run twice.
-Errors say what to type next, for example "Groq key rejected. Run frugal add groq to replace it."
+Errors say what to type next, for example "No models answered. Refresh the Cloudflare connection in 9Router, then run frugal verify."
 status, models and providers accept --json, so pilot results can be collected by script.
 frugal on its own prints status and the five everyday commands, so a lost student always has a starting point.
 Setup flow
 Check that Node.js is installed; if not, explain how to get it and stop.
 Detect a running 9Router on 127.0.0.1:20128. If one answers, reuse it and never touch it. If none answers, offer (default yes) to install the pinned release into frugal's own directory and start it as a managed process; install locally, not globally, so no sudo is needed and uninstall is clean. Never install silently, and never use a floating "latest".
 Set a random dashboard password and API key, or confirm a config path that lets frugal provision them (spike item: how 9Router accepts them non-interactively).
-Show the privacy notice, then ask for the student's OpenRouter key and test it.
-Enable OpenCode Free, then guide the student through signing up for and testing the default providers (OpenRouter and Groq), and offer the optional ones. Detect any local model server (Ollama, llama.cpp or Kindi) and offer to add it.
-Ask for the tier and local_mode, then fetch rankings and picks, and build the free-best combo, plus budget-best on the budget tier.
+Show the privacy notice. Provider keys are entered in 9Router, not frugal; frugal prints a short checklist of the recommended free providers and links to 9Router's dashboard. frugal never stores provider keys.
+Guide the student to connect the recommended free providers in 9Router (OpenCode Free, OpenRouter, Groq, and optionally Cloudflare or Kilo), then read 9Router's connected models rather than trusting a cached list. Detect any local model server (Ollama, llama.cpp or Kindi) and offer to add it.
+Ask for the tier and local_mode, then fetch rankings and picks, verify which advertised models actually answer, and build the free-best combo (plus budget-best on the budget tier). If 9Router's combo API is unavailable (it currently needs a dashboard session), print a paste-ready order for the combo editor instead of failing.
 Configure OpenCode and Pi, and show the Msty paste guide.
-Run doctor and send one test message through the router.
+Run doctor, and send one test message through the router if the combo can be applied programmatically.
 Router lifecycle. A RouterManager owns 9Router on every platform: detect, install (pinned, local), start (spawn detached with a pidfile and a logfile), stop, update (bump the pin with a frugal release, then smoke test) and uninstall. The same manager backs frugal start/stop and, later, the desktop app. The CLI is the canonical interface; the desktop app is an optional shell over the same core.
 First use requires Node. Removing that requirement is the desktop app's job (see section 11): it bundles a Node runtime and 9Router so a low-tech student double-clicks one installer.
 ### 4. Project 1: ranking, providers, tiers and failover
