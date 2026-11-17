@@ -32,7 +32,7 @@ frugal setup
 | `frugal status` | Router status, connected models and next step |
 | `frugal doctor` | Checks every link in the chain; `--fix` applies safe fixes |
 | `frugal start` / `stop` | Start or stop the router service |
-| `frugal refresh` | Explain how to refresh: run `frugal verify`, then update `free-best` in 9Router |
+| `frugal refresh` | Daily check: refresh catalogs, verify a spread, update `free-best` + Fallback (`--no-apply` to preview) |
 | `frugal verify` | Probe the models 9Router advertises and keep only the ones that answer |
 | `frugal models` | List the combo in order |
 | `frugal prefer` / `ban` / `lock` / `reset` | Student overrides |
@@ -115,6 +115,25 @@ pi --provider 9router --model budget-best
 ```
 
 frugal leaves paid plans, spend and the cap to you. It does not offer or manage them.
+
+## Daily check
+
+Run it once a day (or after adding providers):
+
+```sh
+FRUGAL_ROUTER_PASSWORD=... frugal refresh             # sync, verify, update free-best
+FRUGAL_ROUTER_PASSWORD=... frugal refresh --no-apply  # preview only
+FRUGAL_ROUTER_PASSWORD=... frugal refresh --limit 5   # probe fewer models
+FRUGAL_ROUTER_KEY=... frugal refresh                  # verify + print order, cannot apply
+```
+
+It logs in, refreshes provider catalogs, probes a spread (default 10) with one-token requests, records the results in the reliability ledger, then rewrites `free-best` with the responders and sets Strategy: Fallback. If no model answers, it leaves the combo unchanged and exits non-zero.
+
+Cron example (keep the password in a 0600 env file, not the crontab):
+
+```cron
+0 8 * * *  set -a; . "$HOME/.config/frugal/router.env"; set +a; frugal refresh --json >> "$HOME/.frugal-refresh.log" 2>&1
+```
 
 ## Development
 
