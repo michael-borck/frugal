@@ -98,11 +98,24 @@ See `docs/SPIKE.md` for the checklist that verifies 9Router's control API and fa
 
 9Router keeps its data in `~/.9router` on macOS/Linux (`%APPDATA%\9router` on Windows), with the SQLite database at `~/.9router/db/data.sqlite`. Uninstalling the npm package does **not** remove that data, and a running instance keeps port 20128 busy.
 
+The easy path is the bundled script:
+
+```sh
+npm run clean-test -- --dry-run        # print the plan
+npm run clean-test                     # stop the port (asks), run setup, clean up
+npm run clean-test -- --isolated-home  # also keep Pi/OpenCode configs in the temp HOME
+npm run clean-test -- --keep           # keep the temp dir afterwards
+```
+
+It runs frugal with an isolated `FRUGAL_HOME` and a fresh 9Router `DATA_DIR`, sets `test1234` as the fresh instance's dashboard password, and stops/removes everything on exit. It never touches `~/.9router`.
+
+Manual equivalent:
+
 1. Stop any running 9Router:
    ```sh
    lsof -nP -iTCP:20128 -sTCP:LISTEN    # kill that PID, or quit the 9Router tray/CLI
    ```
-2. Run frugal against an isolated data directory (does not touch `~/.9router`):
+2. Run frugal against an isolated data directory:
    ```sh
    export FRUGAL_HOME=/tmp/frugal-clean
    export FRUGAL_ROUTER_DATA_DIR=/tmp/frugal-clean/nine-data
@@ -113,7 +126,9 @@ See `docs/SPIKE.md` for the checklist that verifies 9Router's control API and fa
    frugal installs its own pinned 9Router under `$FRUGAL_HOME/router`, so a global `npm install -g 9router` is optional. Stop it with `FRUGAL_HOME=/tmp/frugal-clean frugal stop`; remove the test with `rm -rf /tmp/frugal-clean`.
 3. To wipe the real 9Router instead, stop it and move the data aside: `mv ~/.9router ~/.9router.bak`.
 
-The harness configs are the real ones: frugal backs up and updates `~/.pi/agent/models.json` (preserving your Ollama and shared-server providers) or `~/.config/opencode/opencode.json`. Move those aside first if you want a totally clean harness test.
+The harness configs are the real ones: frugal backs up and updates `~/.pi/agent/models.json` (preserving your Ollama and shared-server providers) or `~/.config/opencode/opencode.json`. Move those aside first, or use `--isolated-home`, if you want a totally clean harness test.
+
+Note: `frugal setup` is interactive (provider menu, verify, harness), so the script is for a human-run clean test. For CI, use the unit tests with an injected session, or add a future `--yes` mode.
 
 ## License
 

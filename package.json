@@ -21,7 +21,8 @@
     "start": "node dist/cli/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "clean-test": "bash scripts/frugal-clean-test.sh"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
