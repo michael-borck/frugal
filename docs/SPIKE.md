@@ -136,7 +136,7 @@ Then, with `-b /tmp/9r.cookies`:
 
 The `9router` CLI also has an interactive ASCII menu with **Providers**, **Combos**, **API Keys**, **Settings**, and **CLI tools** screens, so the same configuration can be done in the shell without curl.
 
-Implication: frugal can fully automate combo creation, catalog sync and provider listing if the user supplies the dashboard password once at setup (kept in memory, not stored). That is the next integration step.
+Implemented: frugal setup now logs in with the dashboard password (held in memory, never stored), runs catalog-sync, reuses or creates the sk- API key via /api/keys, and upserts free-best with the Fallback strategy via /api/combos and /api/settings. If login is skipped it falls back to the API key and a paste-ready order.
 
 ## Exit check
 

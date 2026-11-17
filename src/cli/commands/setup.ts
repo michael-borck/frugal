@@ -10,6 +10,7 @@ import {
   type ProbeResult,
 } from "../../core/verify.js";
 import { makeObservation, recordObservation } from "../../core/reliability.js";
+import { RouterSession, type SessionApi } from "../../core/sessionClient.js";
 import { writePiConfig, PI_PROVIDER_ID } from "../../core/integrations/pi.js";
 import { writeOpenCodeConfig } from "../../core/integrations/opencode.js";
 import { mstyGuide } from "../../core/integrations/msty.js";
@@ -37,6 +38,8 @@ export interface SetupDeps {
   fetchImpl?: typeof fetch;
   routerManager?: RouterLifecycle;
   detectLocal?: (fetchImpl?: typeof fetch) => Promise<LocalProbe[]>;
+  /** Injected for tests; otherwise a RouterSession is created after login. */
+  session?: SessionApi;
 }
 
 function routerBase(): string {
@@ -96,18 +99,60 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   await prompter.confirm("Have you connected at least one provider? (You can add more later)", true);
   say("");
 
+  let session: SessionApi | undefined = deps.session;
   let key = (process.env.FRUGAL_ROUTER_KEY ?? "").trim();
+
+  if (!session && !key) {
+    const password =
+      (process.env.FRUGAL_ROUTER_PASSWORD ?? "").trim() ||
+      (await prompter.secret("9Router dashboard password (Enter to skip session):")).trim();
+    if (password) {
+      const candidate = new RouterSession({ fetchImpl });
+      try {
+        const login = await candidate.login(password);
+        if (login.ok) {
+          session = candidate;
+          say("Logged in to 9Router.");
+        } else {
+          say(`Could not log in (${login.detail}). Falling back to an API key.`);
+        }
+      } catch (error) {
+        say(`Could not log in: ${(error as Error).message}. Falling back to an API key.`);
+      }
+    }
+  }
+
+  let catalogSynced = false;
+  if (session) {
+    try {
+      const sync = await session.catalogSync();
+      catalogSynced = sync.ok;
+      say(sync.ok ? "Refreshed 9Router's provider catalogs." : `Catalog sync failed: ${sync.detail}`);
+    } catch (error) {
+      say(`Catalog sync failed: ${(error as Error).message}`);
+    }
+    if (!key) {
+      try {
+        key = await session.getApiKey("frugal");
+        say("Using a 9Router API key (reused or created).");
+      } catch (error) {
+        say(`Could not get an API key: ${(error as Error).message}`);
+      }
+    }
+  }
+
   if (!key) {
     key = (await prompter.secret("9Router API key (from the dashboard):")).trim();
   }
   if (!key) {
-    say("No 9Router API key. Re-run with FRUGAL_ROUTER_KEY set, or paste it when asked.");
+    say("No 9Router credentials. Re-run with FRUGAL_ROUTER_PASSWORD or FRUGAL_ROUTER_KEY set.");
     return 1;
   }
 
   let ids: string[];
   try {
-    ids = await listRouterModels({ apiKey: key, fetchImpl });
+    ids = session ? await session.listModels() : [];
+    if (ids.length === 0) ids = await listRouterModels({ apiKey: key, fetchImpl });
   } catch (error) {
     say(`Could not read models from 9Router: ${(error as Error).message}`);
     return 1;
@@ -167,11 +212,32 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
     applied.push(await writeOpenCodeConfig({ baseUrl, apiKey: key, model: "free-best" }));
   }
 
+  let comboApplied = false;
+  if (combo.length > 0 && session) {
+    try {
+      const upserted = await session.upsertCombo("free-best", combo);
+      const strategy = await session.ensureFallbackStrategy("free-best");
+      comboApplied = true;
+      say("");
+      say(
+        `Updated free-best (${upserted.created ? "created" : "updated"}) with ${combo.length} models${
+          strategy ? ", Strategy: Fallback" : ""
+        }.`,
+      );
+    } catch (error) {
+      say(`Could not write the combo: ${(error as Error).message}`);
+    }
+  }
+
   if (combo.length > 0) {
     say("");
-    say("Suggested free-best order (9Router → Combos → free-best, Strategy: Fallback):");
+    say("free-best order:");
     combo.forEach((id, index) => say(`  ${index + 1}. ${id}`));
-    say("9Router's combo API needs a dashboard session, so frugal prints the order instead of applying it.");
+    if (!comboApplied) {
+      say(
+        "Paste this into 9Router → Combos → free-best, Strategy: Fallback. (Log in at setup to apply it automatically.)",
+      );
+    }
   } else {
     say("No models verified yet. Connect providers, then run frugal verify to build the order.");
   }
@@ -199,6 +265,9 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
 
   jsonOut(ctx, {
     router: routerBase(),
+    session: session != null,
+    catalog_synced: catalogSynced,
+    combo_applied: comboApplied,
     providers: prefixes,
     models: ids.length,
     verified: results.filter((result) => result.ok).map((result) => result.id),

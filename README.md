@@ -8,7 +8,7 @@ frugal never sits in the request path. Once configured, the student's tools talk
 
 **Scope:** frugal is deliberately thin — an opinionated installer/configurator for 9Router, not a router. Provider keys and connections live in 9Router. Power users can configure 9Router directly and ignore frugal; frugal must never get in the way. **frugal-bench is retired**; the order comes from the instructor's `picks.json` plus `frugal verify` and the reliability ledger.
 
-> Status: early build. Working now: `setup` (start 9Router, provider guide, verify, Pi/OpenCode/Msty wiring), `verify` (probe advertised models, keep responders), the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings` (picks/usage/results/catalog URLs), `doctor`/`status`, start/stop. Remaining spike items: 9Router's combo/provider API (dashboard-session only) and non-interactive provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
+> Status: early build. Working now: `setup` (start 9Router, provider guide, dashboard login, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: non-interactive provisioning of the dashboard password and provider registration via API. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
 
 ## Requirements
 
@@ -65,15 +65,16 @@ When a source is unset or unreachable, frugal falls back to verified responders 
 
 ## Verifying models
 
-9Router's `/v1/models` is a cached hint, not truth: it advertises ids that 404, models that are not chat-capable, and `:free` names that are neither free nor working. `frugal verify` probes a spread of the advertised models with a one-token request and reports which actually answer, records the results in the reliability ledger, and prints a paste-ready `free-best` order.
+9Router's `/v1/models` is a cached hint, not truth: it advertises ids that 404, models that are not chat-capable, and `:free` names that are neither free nor working. `frugal setup` logs in to 9Router's dashboard with the password you supply, **refreshes provider catalogs** (`/api/models/catalog-sync`), reuses or creates an API key, probes a spread of models, and writes `free-best` with **Strategy: Fallback** through the session API. When you skip the login, it prints a paste-ready order instead.
 
 ```sh
-export FRUGAL_ROUTER_KEY="$(cat ~/9router.txt)"   # 9Router's own API key, not a provider key
+export FRUGAL_ROUTER_PASSWORD="<dashboard password>"   # session mode (not stored)
+export FRUGAL_ROUTER_KEY="$(cat ~/9router.txt)"        # fallback: API key only
+frugal setup
 frugal verify --provider cf --limit 5
-frugal verify --limit 12 --out verified.json
 ```
 
-Probing spends a small amount of quota (one token per model), so the default is a limited spread, not the whole list. Writing the combo is dashboard-manual for now, but 9Router exposes a session API (`/api/combos`, `/api/models/catalog-sync`) — the next automation step (see `docs/SPIKE.md`).
+Probing spends a small amount of quota (one token per model), so the default is a limited spread. The dashboard password is held in memory for setup only; the created/reused `sk-` key is what the harness configs use.
 
 ## Development
 
