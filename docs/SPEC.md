@@ -14,7 +14,7 @@ No paid routing by default: paid plans only in the opt-in budget tier, under the
 No attempt to make free models match paid ones; the goal is the best available order.
 How the two projects relate
 Status change: frugal-bench is retired. In practice the free tier is dominated by availability, not decimal quality scores, and 9Router already advertises the connected models. frugal therefore ranks by the instructor's picks.json plus frugal verify and the reliability ledger. A hosted results.json, usage.json or catalog.json is still accepted if an instructor produces one later, but there is no default source and no dependency on frugal-bench.
-Naming. The project is frugal: students type the command frugal, the npm package is @borck/frugal because the bare frugal name is taken by an unrelated package. frugal-bench is parked. It was renamed from the working names freerouter and then cheaprouter, because "free" overpromised once paid tiers were added and "cheap" read as low quality. The tier name free and the combo name free-best keep their names because they describe the free tier.
+Naming. The project is frugal: students type the command frugal, the npm package is @michaelborck/frugal because the bare frugal name is taken by an unrelated package. frugal-bench is parked. It was renamed from the working names freerouter and then cheaprouter, because "free" overpromised once paid tiers were added and "cheap" read as low quality. The tier name free and the combo name free-best keep their names because they describe the free tier.
 Tiers. One setting, tier, decides which providers frugal may use.
 Tier
 Default
@@ -580,7 +580,7 @@ OpenCode's config file location and provider schema on each OS.
 That Msty has no importable config and accepts a custom OpenAI-compatible endpoint in its free version.
 OpenRouter's models API exposes the fields frugal filters on (pricing, modalities, supported parameters, context length).
 Whether OpenRouter's rankings data API can be used directly for the free-only usage ranking, or whether the models API is the better source.
-That no common CLI already installs a frugal binary, and that the @borck npm scope is owned and available for publishing.
+That no common CLI already installs a frugal binary, and that the @michaelborck npm scope is owned and available for publishing.
 Added unverified assumptions
 Whether 9Router applies cooldowns and checks context size when it falls back between free providers.
 Whether 9Router classifies a 400 context-overflow as request-scoped (no failover), as its docs suggest.
@@ -606,7 +606,7 @@ Are any students minors, and what do school policies require for third-party AI 
 Should the instructor's account buy the $10 credit for benchmark runs?
 Decided: local models are in scope as a first-class provider, delivered in frugal v0.2.
 Added open questions
-Decided: the project is frugal (command frugal, npm package @borck/frugal); frugal-bench is parked.
+Decided: the project is frugal (command frugal, npm package @michaelborck/frugal); frugal-bench is parked.
 Decided: frugal is a configurator, not a proxy (decision A). 9Router owns failover; the harness owns compaction. OpenCode is the recommended default harness; Pi (lightweight) and Msty (GUI, guided paste) are supported. frugal watch and frugal mcp are optional v0.2 features.
 Decided: no Msty clone. Msty remains the GUI chat client; a later frugal-ui, if built, is a local control panel only, and any chat/RAG/vision app is a separate project (frugal-chat) that talks to 9Router.
 Decided: CLI-first for ISYS6014. No Tauri app for the unit; the unit repo gets a course-specific super-script that installs/checks Node, Ollama and Pi, then calls frugal setup --yes with provider flags and a keys file. Tauri remains an optional v0.3 for non-technical users outside the unit.

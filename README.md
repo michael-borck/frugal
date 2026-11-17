@@ -19,11 +19,11 @@ frugal never sits in the request path. Once configured, the student's tools talk
 ## Install
 
 ```sh
-npm install -g @borck/frugal   # the command is `frugal`
+npm install -g @michaelborck/frugal   # the command is `frugal`
 frugal setup
 ```
 
-The npm package is scoped (`@borck/frugal`) because the bare `frugal` name is taken by an unrelated package. The command is still `frugal`. Until the first npm release, install from source:
+The npm package is scoped (`@michaelborck/frugal`) because the bare `frugal` name is taken by an unrelated package. The command is still `frugal`. Until the first npm release, install from source:
 
 ```sh
 git clone https://github.com/michael-borck/frugal.git
