@@ -104,6 +104,7 @@ export async function loadUserConfig(paths: Paths): Promise<UserConfig> {
       (data.enabled_providers as UserConfig["enabledProviders"]) ?? defaults.enabledProviders,
     picksUrl: data.picks_url as string | undefined,
     resultsUrl: data.results_url as string | undefined,
+    usageUrl: data.usage_url as string | undefined,
   };
 }
 
@@ -120,6 +121,7 @@ export async function saveUserConfig(paths: Paths, config: UserConfig): Promise<
   };
   if (config.picksUrl) payload.picks_url = config.picksUrl;
   if (config.resultsUrl) payload.results_url = config.resultsUrl;
+  if (config.usageUrl) payload.usage_url = config.usageUrl;
   await writeJsonAtomic(paths.userConfigPath, payload);
 }
 

@@ -4,6 +4,7 @@ import {
   parseOpenRouterFreeModels,
   type OpenRouterModelsResponse,
 } from "./candidates.js";
+import { fetchUsageRanks } from "./usage.js";
 
 export interface RankingSource {
   results(): Promise<ResultsFile | null>;
@@ -12,8 +13,10 @@ export interface RankingSource {
 }
 
 export interface RankingSourceOptions {
-  resultsUrl: string;
-  picksUrl: string;
+  /** Optional: when absent, results are simply unavailable and ranking falls back. */
+  resultsUrl?: string;
+  picksUrl?: string;
+  usageUrl?: string;
   openRouterModelsUrl?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -51,6 +54,7 @@ export class HttpRankingSource implements RankingSource {
   constructor(private readonly options: RankingSourceOptions) {}
 
   async results(): Promise<ResultsFile | null> {
+    if (!this.options.resultsUrl) return null;
     const file = await fetchJson<ResultsFile>(
       this.options.resultsUrl,
       this.options.fetchImpl ?? fetch,
@@ -60,6 +64,7 @@ export class HttpRankingSource implements RankingSource {
   }
 
   async picks(): Promise<PicksFile | null> {
+    if (!this.options.picksUrl) return null;
     const file = await fetchJson<PicksFile>(
       this.options.picksUrl,
       this.options.fetchImpl ?? fetch,
@@ -77,6 +82,19 @@ export class HttpRankingSource implements RankingSource {
     if (!payload) {
       throw new Error("could not fetch the OpenRouter model list");
     }
-    return parseOpenRouterFreeModels(payload);
+    const candidates = parseOpenRouterFreeModels(payload);
+
+    const usage = await fetchUsageRanks(
+      this.options.usageUrl,
+      this.options.fetchImpl ?? fetch,
+      this.options.timeoutMs ?? 10_000,
+    );
+    if (usage.size > 0) {
+      for (const candidate of candidates) {
+        const rank = usage.get(candidate.id);
+        if (rank != null) candidate.usageRank = rank;
+      }
+    }
+    return candidates;
   }
 }

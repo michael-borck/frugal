@@ -4,10 +4,9 @@ import { HttpRankingSource } from "../../core/rankingSource.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
-const DEFAULT_RESULTS_URL =
-  process.env.FRUGAL_RESULTS_URL ?? "https://example.invalid/frugal/results.json";
-const DEFAULT_PICKS_URL =
-  process.env.FRUGAL_PICKS_URL ?? "https://example.invalid/frugal/picks.json";
+const DEFAULT_RESULTS_URL = process.env.FRUGAL_RESULTS_URL;
+const DEFAULT_PICKS_URL = process.env.FRUGAL_PICKS_URL;
+const DEFAULT_USAGE_URL = process.env.FRUGAL_USAGE_URL;
 
 export const refreshCommand: Command = {
   name: "refresh",
@@ -20,6 +19,7 @@ export const refreshCommand: Command = {
     const source = new HttpRankingSource({
       resultsUrl: user.resultsUrl ?? DEFAULT_RESULTS_URL,
       picksUrl: user.picksUrl ?? DEFAULT_PICKS_URL,
+      usageUrl: user.usageUrl ?? DEFAULT_USAGE_URL,
     });
     const router = new HttpRouterClient();
 

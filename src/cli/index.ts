@@ -22,6 +22,7 @@ import {
   uninstallCommand,
 } from "./commands/settings.js";
 import { addCommand, removeCommand } from "./commands/providerCommands.js";
+import { rankingsCommand } from "./commands/rankings.js";
 
 function version(): string {
   try {
@@ -52,6 +53,7 @@ const COMMANDS: Command[] = [
   providersCommand,
   addCommand,
   removeCommand,
+  rankingsCommand,
   reportCommand,
   updateCommand,
   uninstallCommand,
@@ -130,6 +132,12 @@ export async function main(argv: string[]): Promise<number> {
 
 const invokedDirectly = process.argv[1] && /frugal|cli\/index/.test(process.argv[1]);
 if (invokedDirectly) {
+  const ignoreEpipe = (error: NodeJS.ErrnoException): void => {
+    if (error.code === "EPIPE") process.exit(0);
+  };
+  process.stdout.on("error", ignoreEpipe);
+  process.stderr.on("error", ignoreEpipe);
+
   main(process.argv.slice(2))
     .then((code) => {
       process.exitCode = code;

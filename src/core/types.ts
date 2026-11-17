@@ -108,6 +108,7 @@ export interface UserConfig {
   enabledProviders: ProviderId[];
   picksUrl?: string;
   resultsUrl?: string;
+  usageUrl?: string;
 }
 
 export interface ComboSnapshot {

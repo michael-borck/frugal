@@ -28,10 +28,9 @@ import {
 import { type Command, type CommandContext, jsonOut } from "../command.js";
 import { DefaultPrompter, ReadlinePrompter, type Prompter } from "../prompt.js";
 
-const DEFAULT_RESULTS_URL =
-  process.env.FRUGAL_RESULTS_URL ?? "https://example.invalid/frugal/results.json";
-const DEFAULT_PICKS_URL =
-  process.env.FRUGAL_PICKS_URL ?? "https://example.invalid/frugal/picks.json";
+const DEFAULT_RESULTS_URL = process.env.FRUGAL_RESULTS_URL;
+const DEFAULT_PICKS_URL = process.env.FRUGAL_PICKS_URL;
+const DEFAULT_USAGE_URL = process.env.FRUGAL_USAGE_URL;
 
 export interface SetupDeps {
   prompter: Prompter;
@@ -150,6 +149,12 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   };
   await saveUserConfig(paths, nextUser);
 
+  const rankingsConfigured = Boolean(nextUser.resultsUrl ?? DEFAULT_RESULTS_URL);
+  if (!rankingsConfigured) {
+    say("No hosted ranking files configured yet; ranking falls back to usage and name order.");
+    say("Set them with: frugal rankings --results <url> --picks <url> --usage <url>");
+  }
+
   const router = deps.router ?? new HttpRouterClient();
   const routerUp = await router.health();
   say(
@@ -169,6 +174,7 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
       new HttpRankingSource({
         resultsUrl: nextUser.resultsUrl ?? DEFAULT_RESULTS_URL,
         picksUrl: nextUser.picksUrl ?? DEFAULT_PICKS_URL,
+        usageUrl: nextUser.usageUrl ?? DEFAULT_USAGE_URL,
       });
     const composed = await composeAndRegister(nextUser, source, router);
     if (composed.registered) {

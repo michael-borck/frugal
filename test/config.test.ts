@@ -46,6 +46,7 @@ describe("config round-trip", () => {
       enabledProviders: ["openrouter", "groq", "local"],
       picksUrl: "https://example.test/picks.json",
       resultsUrl: "https://example.test/results.json",
+      usageUrl: "https://example.test/usage.json",
     });
 
     const loaded = await loadUserConfig(paths);
@@ -58,6 +59,7 @@ describe("config round-trip", () => {
     expect(loaded.enabledProviders).toEqual(["openrouter", "groq", "local"]);
     expect(loaded.picksUrl).toBe("https://example.test/picks.json");
     expect(loaded.resultsUrl).toBe("https://example.test/results.json");
+    expect(loaded.usageUrl).toBe("https://example.test/usage.json");
   });
 
   it("loads back the last good combo (snake_case on disk)", async () => {

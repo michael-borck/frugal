@@ -153,6 +153,9 @@ Set local_mode (section 4)
 Settings
 frugal local check
 Benchmark the local model on this GPU and compare it with the top free cloud model
+Settings
+frugal rankings
+Configure the hosted results.json, picks.json and usage ranking URLs; all are optional and unset means a graceful fallback
 Providers
 frugal providers
 List enabled providers and whether each key works
@@ -194,8 +197,9 @@ Candidates. Fetch OpenRouter's model list and keep entries whose prompt and comp
 Filters. Drop any candidate that is not text-output, lacks tool-calling support, has a context window below 128K tokens (configurable; local models use a lower minimum of their own, since they rarely run at 128K), or is on the instructor's ban list. This removes safety classifiers, rerankers and tiny models that appear in free lists but are useless for coding agents.
 Score. Order by the first source available, in this priority:
 frugal-bench results.json composite score, grouped into tiers (see section 8)
-OpenRouter's free-model usage ranking over the trailing 7 days, as the fallback and as the tiebreaker within a tier
+Usage rank, as the fallback and as the tiebreaker within a tier. The usage source is pluggable and configured with frugal rankings --usage, because OpenRouter's public models API exposes no usage field and its rankings page is not a stable API. The instructor can publish a usage.json beside results.json, or point at a verified OpenRouter ranking endpoint once the spike confirms one. When no usage source is configured, the tiebreak is model name.
 Merge instructor picks. Apply picks.json: pinned models go first in the stated order, banned models are removed, preferred models get a bonus within their tier. Then apply the student's own overrides (section 10 merge order), cap the combo at 8 to 10 entries and write it to 9Router; the free tier's combo is named free-best.
+Hosted sources are optional. results.json, picks.json and usage.json are each optional; an unset or unreachable source is skipped and the next tiebreak is used, so frugal never depends on a hardcoded placeholder URL.
 Ranking caveat. Usage rankings measure adoption, not quality, so they are a fallback and tiebreaker only. When frugal-bench results are older than 45 days, frugal warns in doctor and relies more on usage rank.
 Refresh triggers
 On every frugal start, if the combo is older than 24 hours.
