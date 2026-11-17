@@ -134,7 +134,7 @@ frugal doctor
 Check every link in the chain and print the fix; --fix applies the safe ones
 Everyday
 frugal start / frugal stop
-Start or stop the router service; start refreshes the combo if it is older than 24 hours
+Start or stop the managed 9Router (start installs the pinned version locally on first use); start refreshes the combo if it is older than 24 hours
 Everyday
 frugal refresh
 Rebuild the combos now from the latest rankings and picks
@@ -184,13 +184,15 @@ status, models and providers accept --json, so pilot results can be collected by
 frugal on its own prints status and the five everyday commands, so a lost student always has a starting point.
 Setup flow
 Check that Node.js is installed; if not, explain how to get it and stop.
-Download the pinned 9Router release, verify its checksum, and start it on 127.0.0.1.
-Set a random dashboard password and API key.
+Detect a running 9Router on 127.0.0.1:20128. If one answers, reuse it and never touch it. If none answers, offer (default yes) to install the pinned release into frugal's own directory and start it as a managed process; install locally, not globally, so no sudo is needed and uninstall is clean. Never install silently, and never use a floating "latest".
+Set a random dashboard password and API key, or confirm a config path that lets frugal provision them (spike item: how 9Router accepts them non-interactively).
 Show the privacy notice, then ask for the student's OpenRouter key and test it.
 Enable OpenCode Free, then guide the student through signing up for and testing the default providers (OpenRouter and Groq), and offer the optional ones. Detect any local model server (Ollama, llama.cpp or Kindi) and offer to add it.
 Ask for the tier and local_mode, then fetch rankings and picks, and build the free-best combo, plus budget-best on the budget tier.
 Configure OpenCode and Pi, and show the Msty paste guide.
 Run doctor and send one test message through the router.
+Router lifecycle. A RouterManager owns 9Router on every platform: detect, install (pinned, local), start (spawn detached with a pidfile and a logfile), stop, update (bump the pin with a frugal release, then smoke test) and uninstall. The same manager backs frugal start/stop and, later, the desktop app. The CLI is the canonical interface; the desktop app is an optional shell over the same core.
+First use requires Node. Removing that requirement is the desktop app's job (see section 11): it bundles a Node runtime and 9Router so a low-tech student double-clicks one installer.
 ### 4. Project 1: ranking, providers, tiers and failover
 The combo is built in four steps, and each step must fail safe: if any input is unreachable, frugal keeps the last good combo and says so in doctor.
 Candidates. Fetch OpenRouter's model list and keep entries whose prompt and completion price is $0 (the :free models). Add the models served by the other providers the student enabled: free providers such as OpenCode Free, a local server, and on the budget tier their paid plan.
@@ -488,14 +490,15 @@ The source field is measured for frugal-bench's own runs or community for report
 Build frugal first with usage-based ranking, so students benefit early, then add frugal-bench behind the same interface.
 Milestones, in order, each gated by its exit check
 Spike (verify assumptions). Confirm 9Router's combo API, OpenCode's custom-provider config, the Pi extension and Msty's provider screen on all three operating systems. Exit: a hand-made combo works end to end in each tool.
-frugal v0.1. Install, setup, doctor, usage-ranked combo, OpenCode and Pi wiring. Exit: the acceptance criteria in section 6 pass on a clean machine.
+frugal v0.1. RouterManager (detect, optional local pinned install, start/stop), setup, doctor, usage-ranked combo, OpenCode and Pi wiring. Exit: the acceptance criteria in section 6 pass on a clean machine, and a fresh machine reaches a running router through frugal alone.
 Classroom pilot. Five to ten students for two weeks, collecting doctor results and friction notes. Exit: at least 80% reach a working setup unaided.
 frugal v0.2. picks.json support, scheduled refresh, Msty guide, uninstall, the observability commands (frugal watch and frugal mcp) as optional.
 frugal-bench v0.1. Code and Availability suites, screening round, results.json output. Exit: a full run completes inside the request budget.
 frugal-bench v0.2. Tools and Long-context suites, tiers with confidence intervals, monthly validation against an external leaderboard.
 Integration. frugal consumes results.json; compare student outcomes against usage-only ranking.
+frugal v0.3 (desktop app). An optional Tauri app for low-tech students that removes the Node prerequisite: it bundles a compiled frugal, a Node runtime and 9Router, reuses the RouterManager and the same core, runs the setup wizard and control panel as a GUI, and adds a tray icon and native notifications (watch). The CLI stays canonical and fully supported. Exit: a non-technical student installs, sets up and reaches a working OpenCode session without a terminal.
 Version 2 ideas. Headless agent-session benchmarks, more free providers, optional telemetry.
-Possible third project: frugal-ui (control panel). A small local UI for the configurator, not a chat app. It shows tier, configured combos, which model last served, quota (where 9Router exposes it), and doctor results, with buttons for refresh, doctor, and prefer/ban/lock. It makes the transparent behaviour visible without moving frugal into the request path. Ship it as a web page served locally by frugal ui (open in the browser) first; a Tauri desktop shell is optional later if a tray icon and native notifications are wanted (it pairs well with frugal watch). Reuse the same status data as the CLI. Avoid Electron (heavy) and avoid a Python/Streamlit stack, which would split the codebase.
+Possible third project: frugal-ui (control panel). A small local UI for the configurator, not a chat app. It shows tier, configured combos, which model last served, quota (where 9Router exposes it), and doctor results, with buttons for refresh, doctor, and prefer/ban/lock. It makes the transparent behaviour visible without moving frugal into the request path. Ship it as a web page served locally by frugal ui (open in the browser) first; the Tauri desktop shell (frugal v0.3) adds the tray icon and native notifications and can bundle 9Router. Reuse the same status data as the CLI. Avoid Electron (heavy) and avoid a Python/Streamlit stack, which would split the codebase.
 Not in scope: a Msty clone. A full chat application with RAG, image and speech processing is a different product, and it duplicates Msty, which frugal already supports as the GUI chat client. If such an app is ever wanted, it is a separate project (working name frugal-chat) that talks to 9Router; 9Router already exposes image, TTS, STT and embedding endpoints under /v1/models/{kind}, so it needs no extra provider wiring in frugal. Do not fold chat features into frugal.
 Where the added scope lands
 Spike (step 1): also verify 9Router's cooldown and context handling, that a 400 context-overflow stays request-scoped, what /v1/models reports as a combo's context window, OpenCode Go's endpoint and key use, Copilot Student inside OpenCode, and compaction in OpenCode and Pi.
@@ -575,6 +578,7 @@ Added open questions
 Decided: the project is frugal (command frugal, npm package frugalrouter), with frugal-bench for the benchmark.
 Decided: frugal is a configurator, not a proxy (decision A). 9Router owns failover; the harness owns compaction. OpenCode is the recommended default harness; Pi (lightweight) and Msty (GUI, guided paste) are supported. frugal watch and frugal mcp are optional v0.2 features.
 Decided: no Msty clone. Msty remains the GUI chat client; a later frugal-ui, if built, is a local control panel only, and any chat/RAG/vision app is a separate project (frugal-chat) that talks to 9Router.
+Decided: 9Router install is optional and detect-then-offer, never forced. Install the pinned version locally into frugal's own directory (npm --prefix), not globally and never "latest". A RouterManager owns detect/install/start/stop/update/uninstall and backs both the CLI and the future app. The CLI is canonical; a Tauri desktop app in v0.3 bundles a Node runtime and 9Router so a low-tech student needs no terminal and no separate Node install.
 Should the default cap be lower than the $40 ceiling, for example $20?
 Who pays for the budget tier: students, a sponsor or the school?
 Should the instructor hold a Go key so that frugal-bench can rank paid models?

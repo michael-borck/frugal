@@ -9,6 +9,7 @@ import {
 } from "../../core/config.js";
 import { HttpRouterClient, type RouterClient } from "../../core/routerClient.js";
 import { HttpRankingSource, type RankingSource } from "../../core/rankingSource.js";
+import { RouterManager, type RouterLifecycle } from "../../core/routerManager.js";
 import { composeAndRegister, stateFromCombos } from "../../core/compose.js";
 import { recommendedContextLimit } from "../../core/combos.js";
 import { applyIntegrations, type ApplyOptions } from "../../core/integrations/index.js";
@@ -40,6 +41,8 @@ export interface SetupDeps {
   source?: RankingSource;
   applyFiles?: (options: ApplyOptions) => Promise<IntegrationResult[]>;
   detectLocal?: (fetchImpl?: typeof fetch) => Promise<LocalProbe[]>;
+  /** When present, setup may install and start 9Router if it is not running. */
+  routerManager?: RouterLifecycle;
 }
 
 export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<number> {
@@ -156,7 +159,24 @@ export async function runSetup(ctx: CommandContext, deps: SetupDeps): Promise<nu
   }
 
   const router = deps.router ?? new HttpRouterClient();
-  const routerUp = await router.health();
+  let routerUp = await router.health();
+
+  if (!routerUp && deps.routerManager) {
+    const wants = await prompter.confirm(
+      "9Router is not running. Install and start the pinned version now?",
+      true,
+    );
+    if (wants) {
+      say("Installing and starting 9Router (pinned). This can take a minute...");
+      const start = await deps.routerManager.start();
+      routerUp = await router.health();
+      say(start.detail);
+      if (!routerUp) {
+        say("9Router is still not reachable. Check the router log, then run frugal start.");
+      }
+    }
+  }
+
   say(
     `9Router: ${
       routerUp
@@ -232,8 +252,12 @@ export const setupCommand: Command = {
   async run(ctx: CommandContext, _args: string[]) {
     const nonInteractive = ctx.json || !process.stdin.isTTY;
     const prompter: Prompter = nonInteractive ? new DefaultPrompter() : new ReadlinePrompter();
+    const deps: SetupDeps = { prompter };
+    if (!nonInteractive) {
+      deps.routerManager = new RouterManager({ configDir: ctx.paths.configDir });
+    }
     try {
-      return await runSetup(ctx, { prompter });
+      return await runSetup(ctx, deps);
     } catch (error) {
       if ((error as Error).message === "cancelled") {
         process.stderr.write("Setup cancelled.\n");

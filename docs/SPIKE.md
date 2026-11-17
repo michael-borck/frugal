@@ -80,6 +80,10 @@ The public `https://openrouter.ai/api/v1/models` has no usage field, and `/ranki
 
 Until then, usage ranking is configured with `frugal rankings --usage <url>` and is simply off when unset.
 
+## 10. Non-interactive provisioning
+
+`frugal setup` must set the dashboard password and API key without a human clicking around the dashboard. Determine whether 9Router accepts them via environment variables, a config/data file, or a first-run CLI flag. Record the exact mechanism and where the data directory lives, so RouterManager can provision it after install and so `secrets.json` can hand keys to 9Router if a registration API exists.
+
 ## Exit check
 
 A hand-made `free-best` combo answers through OpenCode via 9Router, falls back on a 429 with no student-visible error, and every endpoint frugal calls has been corrected to the real one with a smoke test.

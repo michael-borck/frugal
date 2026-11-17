@@ -1,30 +1,33 @@
-import { defaultPaths, loadState, saveState } from "../../core/config.js";
+import { defaultPaths } from "../../core/config.js";
+import { RouterManager } from "../../core/routerManager.js";
 import { ROUTER_HOST, ROUTER_PORT } from "../../core/types.js";
-import { HttpRouterClient } from "../../core/routerClient.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
 export const startCommand: Command = {
   name: "start",
-  summary: "Start or stop the router service; start refreshes the combo if it is older than 24 hours.",
+  summary:
+    "Start the router service (installing the pinned 9Router locally on first use).",
   group: "Everyday",
   async run(ctx: CommandContext, _args: string[]) {
-    const router = new HttpRouterClient();
-    const up = await router.health();
-    jsonOut(ctx, { router: up ? "running" : "stopped", host: ROUTER_HOST, port: ROUTER_PORT });
+    const paths = defaultPaths();
+    const manager = new RouterManager({ configDir: paths.configDir });
+    const result = await manager.start();
+
+    jsonOut(ctx, {
+      running: result.started || result.alreadyRunning,
+      already_running: result.alreadyRunning,
+      pid: result.pid ?? null,
+      detail: result.detail,
+      host: ROUTER_HOST,
+      port: ROUTER_PORT,
+    });
     if (!ctx.json) {
-      out(
-        ctx,
-        up
-          ? `9Router is running at http://${ROUTER_HOST}:${ROUTER_PORT}.`
-          : `9Router is not running. (Service launch is not wired yet in this scaffold.)`,
-      );
+      out(ctx, result.detail);
+      if (!result.started && !result.alreadyRunning) {
+        out(ctx, "Check the router log, or install it manually with: npm install -g 9router");
+      }
     }
-    if (up) {
-      const state = await loadState(defaultPaths());
-      state.lastRefreshAt ??= new Date().toISOString();
-      await saveState(defaultPaths(), state);
-    }
-    return up ? 0 : 1;
+    return result.started || result.alreadyRunning ? 0 : 1;
   },
 };
 
@@ -33,7 +36,11 @@ export const stopCommand: Command = {
   summary: "Stop the router service.",
   group: "Everyday",
   async run(ctx: CommandContext, _args: string[]) {
-    out(ctx, "Stop is not wired yet in this scaffold. (Service management is a spike item.)");
-    return 0;
+    const paths = defaultPaths();
+    const manager = new RouterManager({ configDir: paths.configDir });
+    const result = await manager.stop();
+    jsonOut(ctx, { stopped: result.stopped, detail: result.detail });
+    if (!ctx.json) out(ctx, result.detail);
+    return result.stopped ? 0 : 1;
   },
 };

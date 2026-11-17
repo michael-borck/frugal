@@ -15,7 +15,12 @@ import type { IntegrationResult } from "../src/core/integrations/base.js";
 class ScriptedPrompter implements Prompter {
   infos: string[] = [];
   constructor(
-    private readonly answers: { selects?: string[]; texts?: string[]; secrets?: string[] } = {},
+    private readonly answers: {
+      selects?: string[];
+      texts?: string[];
+      secrets?: string[];
+      confirms?: boolean[];
+    } = {},
   ) {}
 
   text(_question: string, options?: { default?: string }): Promise<string> {
@@ -25,8 +30,8 @@ class ScriptedPrompter implements Prompter {
   secret(): Promise<string> {
     return Promise.resolve(this.answers.secrets?.shift() ?? "");
   }
-  confirm(_question: string, defaultValue = false): Promise<boolean> {
-    return Promise.resolve(defaultValue);
+  confirm(): Promise<boolean> {
+    return Promise.resolve(this.answers.confirms?.shift() ?? false);
   }
   select<T extends string>(
     _question: string,
@@ -169,5 +174,62 @@ describe("runSetup wizard", () => {
     const user = await loadUserConfig(paths);
     expect(user.localMode).toBe("only");
     expect(user.enabledProviders).toContain("local");
+  });
+
+  it("offers to install and start the router when it is not running", async () => {
+    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["", ""], confirms: [true] });
+    let started = 0;
+    const manager = {
+      isRunning: async () => false,
+      isInstalled: async () => false,
+      install: async () => ({ code: 0, stdout: "", stderr: "" }),
+      start: async () => {
+        started += 1;
+        return { started: true, alreadyRunning: false, detail: "9Router started" };
+      },
+      stop: async () => ({ stopped: true, detail: "" }),
+      uninstall: async () => {},
+    };
+
+    await runSetup(ctx, {
+      prompter,
+      paths,
+      fetchImpl: okFetch(),
+      router: new DownRouter(),
+      applyFiles,
+      detectLocal: async () => [],
+      routerManager: manager,
+    });
+
+    expect(started).toBe(1);
+    expect(prompter.infos.join(" ")).toMatch(/9Router started/);
+  });
+
+  it("does not install when the student declines", async () => {
+    const prompter = new ScriptedPrompter({ selects: ["free"], secrets: ["", ""], confirms: [false] });
+    let started = 0;
+    const manager = {
+      isRunning: async () => false,
+      isInstalled: async () => false,
+      install: async () => ({ code: 0, stdout: "", stderr: "" }),
+      start: async () => {
+        started += 1;
+        return { started: true, alreadyRunning: false, detail: "" };
+      },
+      stop: async () => ({ stopped: true, detail: "" }),
+      uninstall: async () => {},
+    };
+
+    await runSetup(ctx, {
+      prompter,
+      paths,
+      fetchImpl: okFetch(),
+      router: new DownRouter(),
+      applyFiles,
+      detectLocal: async () => [],
+      routerManager: manager,
+    });
+
+    expect(started).toBe(0);
   });
 });
