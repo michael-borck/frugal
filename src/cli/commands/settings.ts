@@ -1,5 +1,6 @@
 import { defaultPaths, loadUserConfig, saveUserConfig } from "../../core/config.js";
 import { DEFAULT_MAX_MONTHLY_USD, type LocalMode, type Tier } from "../../core/types.js";
+import { detectLocalServers, probeLocalServers } from "../../core/local.js";
 import { type Command, type CommandContext, jsonOut, out, UsageError } from "../command.js";
 
 export const tierCommand: Command = {
@@ -32,12 +33,42 @@ export const localCommand: Command = {
   group: "Settings",
   async run(ctx: CommandContext, args: string[]) {
     const sub = args[0];
-    if (sub === "check") {
+    if (sub === "detect") {
+      const probes = await probeLocalServers();
+      const detected = probes.filter((p) => p.reachable);
       jsonOut(ctx, {
-        detected: false,
+        detected: detected.map(({ engine, port, baseUrl }) => ({ engine, port, baseUrl })),
+        probes: probes.map(({ engine, port, reachable, detail }) => ({
+          engine,
+          port,
+          reachable,
+          detail,
+        })),
+      });
+      if (!ctx.json) {
+        for (const probe of probes) {
+          out(ctx, `[${probe.reachable ? "found" : "  -  "}] ${probe.engine}: ${probe.detail}`);
+        }
+        if (detected.length === 0) {
+          out(ctx, "No local server found. Start Ollama, llama.cpp server, or Kindi, then re-run.");
+        }
+      }
+      return 0;
+    }
+    if (sub === "check") {
+      const detected = await detectLocalServers();
+      jsonOut(ctx, {
+        detected: detected.map(({ engine, port, baseUrl }) => ({ engine, port, baseUrl })),
         note: "GPU/VRAM detection and the 10-task subset are not wired yet (spike item).",
       });
-      if (!ctx.json) out(ctx, "Local check is not wired yet in this scaffold.");
+      if (!ctx.json) {
+        out(
+          ctx,
+          detected.length > 0
+            ? `Local server found: ${detected.map((d) => `${d.engine} on ${d.port}`).join(", ")}. GPU benchmark is not wired yet.`
+            : "No local server found. Start one first, then re-run frugal local check.",
+        );
+      }
       return 0;
     }
     const mode = sub;

@@ -2,6 +2,7 @@ import { defaultPaths, loadState, loadUserConfig } from "../../core/config.js";
 import { ROUTER_HOST, ROUTER_PORT, combosForTier } from "../../core/types.js";
 import { HttpRouterClient } from "../../core/routerClient.js";
 import { openCodeConfigured, openCodeCompactionConfigured } from "../../core/integrations/opencode.js";
+import { detectLocalServers } from "../../core/local.js";
 import { piConfigured } from "../../core/integrations/pi.js";
 import { type Command, type CommandContext, jsonOut, out } from "../command.js";
 
@@ -78,6 +79,16 @@ export const doctorCommand: Command = {
         ? "OpenCode auto-compaction configured"
         : "OpenCode auto-compaction not configured",
       fix: "Run frugal setup",
+    });
+
+    const local = await detectLocalServers();
+    checks.push({
+      name: "local",
+      ok: true,
+      detail:
+        local.length > 0
+          ? `detected: ${local.map((s) => `${s.engine} on ${s.port}`).join(", ")}`
+          : "no local model server detected (optional)",
     });
 
     const piOk = await piConfigured();
