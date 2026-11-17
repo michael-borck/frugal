@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>frugal — a working free AI setup in one command</title>
+<meta name="description" content="frugal configures 9Router with a verified fallback chain of free models and wires Pi, OpenCode or Msty. Built for students on modest laptops.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa;
+    --fg: #1d1d1f;
+    --muted: #5f6368;
+    --line: #e3e3e0;
+    --card: #ffffff;
+    --accent: #2f6f4f;
+    --code: #f4f4f1;
+    --warn-bg: #fff7e6;
+    --warn-line: #f0d9a8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141513;
+      --fg: #ececea;
+      --muted: #a6a8a3;
+      --line: #2b2d29;
+      --card: #1b1d1a;
+      --accent: #8fd3ae;
+      --code: #20231f;
+      --warn-bg: #2a2416;
+      --warn-line: #4a3d1f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header, main, footer { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+  header { padding-top: 40px; padding-bottom: 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { font-weight: 650; font-size: 20px; letter-spacing: -0.01em; }
+  .brand span { color: var(--muted); font-weight: 400; }
+  nav a { margin-left: 16px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  h1 { font-size: 40px; line-height: 1.12; letter-spacing: -0.02em; margin: 28px 0 12px; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin: 40px 0 10px; }
+  h3 { font-size: 17px; margin: 22px 0 6px; }
+  p { margin: 10px 0; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 64ch; }
+  .cta { margin: 24px 0 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .button { display: inline-block; padding: 10px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); font-weight: 550; }
+  .button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .button:hover { text-decoration: none; filter: brightness(1.03); }
+  .note { margin: 20px 0; padding: 12px 14px; background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; font-size: 14.5px; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  :not(pre) > code { background: var(--code); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 0.92em; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 16px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h3 { margin-top: 0; }
+  .muted { color: var(--muted); }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+  footer { margin-top: 56px; padding: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  footer a { color: var(--muted); text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">frugal <span>— a thin 9Router setup wizard</span></div>
+  <nav>
+    <a href="https://github.com/michael-borck/frugal">GitHub</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#docs">Docs</a>
+  </nav>
+</header>
+
+<main>
+  <h1>A working, free AI setup in one command.</h1>
+  <p class="lede">
+    frugal installs and configures a local <strong>9Router</strong>, adds the free providers you choose,
+    verifies which models actually answer, and writes a ranked <code>free-best</code> combo with
+    fallback. Then it wires the harness — Pi, OpenCode or Msty. 9Router routes; frugal configures.
+  </p>
+  <div class="cta">
+    <a class="button primary" href="#quickstart">Get started</a>
+    <a class="button" href="https://github.com/michael-borck/frugal">View source</a>
+  </div>
+  <div class="note">
+    Early build. The npm package is not published yet, so install from source below. Built for
+    students on modest laptops: Pi is the default harness, and your existing local Ollama or a
+    shared Ollama server stays untouched.
+  </div>
+
+  <h2 id="quickstart">Quickstart</h2>
+  <p>Requires Node.js 22 or newer and a terminal. On a clean machine:</p>
+  <pre><code>git clone https://github.com/michael-borck/frugal.git
+cd frugal
+npm install
+npm run build
+npm link          # exposes the `frugal` command
+
+frugal setup</code></pre>
+  <p><code>frugal setup</code> will:</p>
+  <ul>
+    <li>Start 9Router (installing a pinned local copy if needed).</li>
+    <li>Ask for the 9Router dashboard password and log in.</li>
+    <li>Let you add free providers: keys go straight to 9Router, never to frugal.</li>
+    <li>Refresh catalogs, probe a spread of models, and build <code>free-best</code> with Fallback.</li>
+    <li>Write the harness config for Pi (default), OpenCode, or both; Msty gets a paste guide.</li>
+  </ul>
+  <p>Non-interactive (e.g. a class script):</p>
+  <pre><code>export FRUGAL_ROUTER_PASSWORD='…'
+export OPENROUTER_API_KEY='…'
+export GROQ_API_KEY='…'
+frugal setup --yes --provider openrouter,groq --harness pi --verify</code></pre>
+  <p class="muted">Provider keys can also come from a dotenv-style file: <code>--keys-file ~/.config/frugal/providers.env</code>.</p>
+
+  <h2>Free providers</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Native in 9Router</h3>
+      <p class="muted">No custom setup needed.</p>
+      <ul>
+        <li>OpenCode Free <span class="tag">no key</span></li>
+        <li>OpenRouter</li>
+        <li>Groq</li>
+        <li>Cloudflare Workers AI <span class="tag">token + account id</span></li>
+        <li>Kilo Gateway</li>
+        <li>NVIDIA NIM</li>
+        <li>Mistral</li>
+        <li>Google Gemini</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Custom OpenAI-compatible</h3>
+      <p class="muted">frugal registers the provider node, then adds the key.</p>
+      <ul>
+        <li>Requesty</li>
+        <li>CrowLLM <span class="tag">verify models</span></li>
+      </ul>
+      <p class="muted">Any other OpenAI-compatible endpoint works the same way.</p>
+    </div>
+  </div>
+  <p>Run <code>frugal guide providers</code> for a thin per-provider guide: signup link, where the key is, the env var, and two or three steps.</p>
+
+  <h2>Daily check</h2>
+  <p>Free lineups and quotas move. Once a day — or after adding providers:</p>
+  <pre><code>export FRUGAL_ROUTER_PASSWORD='…'
+frugal refresh</code></pre>
+  <p>
+    It refreshes provider catalogs, probes a spread of models, records reliability, and rewrites
+    <code>free-best</code> with the ones that answered, always with Strategy: Fallback. Add
+    <code>--no-apply</code> to preview, or <code>--limit 5</code> to probe fewer.
+  </p>
+
+  <h2>Harnesses</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Pi <span class="tag">default</span></h3>
+      <p class="muted">Lightest option; good for older laptops.</p>
+      <pre><code>pi --provider 9router --model free-best</code></pre>
+      <p class="muted">Your Ollama and shared-server providers are preserved.</p>
+    </div>
+    <div class="card">
+      <h3>OpenCode</h3>
+      <p class="muted">For machines that can carry it.</p>
+      <p>Provider <code>router9</code>, model <code>free-best</code>, compaction configured.</p>
+    </div>
+    <div class="card">
+      <h3>Msty</h3>
+      <p class="muted">Guided paste into its remote OpenAI-compatible provider screen.</p>
+    </div>
+  </div>
+
+  <h2>How it works</h2>
+  <p>
+    9Router owns the runtime: provider connections and API keys, routing, fallback, quota tracking,
+    usage charts and the token saver. frugal is deliberately thin: install/start 9Router, help you
+    add providers, verify what actually answers, apply the ranked combo, and wire the harness.
+    A hosted <code>results.json</code> or <code>picks.json</code> is optional if an instructor
+    publishes one; there is no default ranking service to depend on.
+  </p>
+
+  <h2 id="docs">Docs</h2>
+  <ul>
+    <li><a href="https://github.com/michael-borck/frugal/blob/main/README.md">README</a> — commands, setup, clean test</li>
+    <li><a href="https://github.com/michael-borck/frugal/blob/main/docs/SPEC.md">Spec</a> — the full design</li>
+    <li><a href="https://github.com/michael-borck/frugal/blob/main/docs/FALLBACK-AND-CONTEXT.md">Fallback, context and compaction</a></li>
+    <li><a href="https://github.com/michael-borck/frugal/blob/main/docs/SPIKE.md">9Router spike notes</a> — session API, CLI menus, live findings</li>
+    <li><a href="https://github.com/michael-borck/frugal/blob/main/docs/AUDIT.md">Spec audit</a></li>
+  </ul>
+</main>
+
+<footer>
+  <p>
+    MIT licensed. Not affiliated with 9Router, OpenCode, Pi or Msty.
+    <a href="https://github.com/michael-borck/frugal">github.com/michael-borck/frugal</a>
+  </p>
+</footer>
+</body>
+</html>
