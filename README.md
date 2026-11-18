@@ -8,7 +8,7 @@ frugal never sits in the request path. Once configured, the student's tools talk
 
 **Scope:** frugal is deliberately thin — an opinionated installer/configurator for 9Router, not a router. Provider keys and connections live in 9Router. Power users can configure 9Router directly and ignore frugal; frugal must never get in the way. **frugal-bench is retired**; the order comes from the instructor's `picks.json` plus `frugal verify` and the reliability ledger.
 
-> Status: early build. Working now: `setup` (start 9Router, dashboard login, guided provider add via 9Router, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: OAuth provider connections (browser) and non-interactive dashboard-password provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, and `docs/AUDIT.md`.
+> Status: early build. Working now: `setup` (start 9Router, dashboard login, guided provider add via 9Router, catalog refresh, verify, apply `free-best` with Fallback, Pi/OpenCode/Msty wiring), `verify`, the reliability ledger and `reliability`, `providers` (reads 9Router's connected models), `add`/`remove` guidance, `rankings`, `doctor`/`status`, start/stop. Remaining spike items: OAuth provider connections (browser) and non-interactive dashboard-password provisioning. `frugal watch` and `frugal mcp` are v0.2; a Tauri desktop app is v0.3. See `docs/SPEC.md`, `docs/FALLBACK-AND-CONTEXT.md`, `docs/SPIKE.md`, `docs/TESTING.md`, and `docs/AUDIT.md`.
 
 ## Where frugal fits: the ladder
 
@@ -166,7 +166,7 @@ npm run typecheck
 npm run build              # emit dist/
 ```
 
-See `docs/SPIKE.md` for the checklist that verifies 9Router's control API and fallback behaviour against a live instance.
+See `docs/SPIKE.md` for the checklist that verifies 9Router's control API and fallback behaviour against a live instance. See `docs/TESTING.md` for the full local rollout checklist: isolated smoke, real setup, daily check, failure cases and known gaps.
 
 ## Testing from a clean slate
 
